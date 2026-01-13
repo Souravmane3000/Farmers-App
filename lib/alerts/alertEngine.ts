@@ -7,8 +7,9 @@ import {
   InventoryItem,
   FieldUsageLog,
   StockLog,
+  CropStatus,
 } from '@/types';
-import { dbHelpers } from '@/types';
+import { dbHelpers } from '@/lib/db/database';
 
 export class AlertEngine {
   async checkAllAlerts(farmId: string): Promise<void> {
