@@ -6,7 +6,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { db } from '@/lib/db/database';
-import { FieldUsageLog, ApplicationMethod, SyncStatus } from '@/types';
+import { FieldUsageLog, ApplicationMethod, SyncStatus, SyncOperation } from '@/types';
 import { syncService } from '@/lib/sync/syncService';
 import { alertEngine } from '@/lib/alerts/alertEngine';
 import { dbHelpers } from '@/lib/db/database';
@@ -90,7 +90,7 @@ export default function AddUsagePage() {
   const loadData = async () => {
     // In a real app, get farmId from auth context
     const farmId = 'farm_1'; // Placeholder
-    
+
     const plotsData = await db.plots.where('farmId').equals(farmId).toArray();
     setPlots(plotsData);
 
@@ -104,7 +104,7 @@ export default function AddUsagePage() {
       .equals(['farm_1', plotId])
       .toArray();
     setCrops(cropsData);
-    
+
     // Auto-select crop if only one
     if (cropsData.length === 1) {
       setValue('cropId', cropsData[0].id);
@@ -169,7 +169,7 @@ export default function AddUsagePage() {
         farmId,
         'fieldUsageLogs',
         usageLog.id,
-        'create',
+        SyncOperation.CREATE,
         usageLog
       );
 
@@ -177,7 +177,7 @@ export default function AddUsagePage() {
         farmId,
         'stockLogs',
         stockLog.id,
-        'create',
+        SyncOperation.CREATE,
         stockLog
       );
 
@@ -233,9 +233,9 @@ export default function AddUsagePage() {
           {watchedPlotId && (
             <Select
               label="Crop Being Treated *"
-              options={crops.map(c => ({ 
-                value: c.id, 
-                label: `${c.name}${c.variety ? ` - ${c.variety}` : ''}` 
+              options={crops.map(c => ({
+                value: c.id,
+                label: `${c.name}${c.variety ? ` - ${c.variety}` : ''}`
               }))}
               {...register('cropId')}
               error={errors.cropId?.message}

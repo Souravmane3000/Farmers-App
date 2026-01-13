@@ -5,7 +5,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { db } from '@/lib/db/database';
-import { Plot, SyncStatus } from '@/types';
+import { Plot, SyncStatus, SyncOperation } from '@/types';
 import { syncService } from '@/lib/sync/syncService';
 import BackButton from '@/components/BackButton';
 import Button from '@/components/Button';
@@ -44,8 +44,8 @@ export default function AddPlotPage() {
       };
 
       await db.plots.add(plot);
-      await syncService.markForSync(farmId, 'plots', plot.id, 'create', plot);
-      
+      await syncService.markForSync(farmId, 'plots', plot.id, SyncOperation.CREATE, plot);
+
       router.push('/plots');
     } catch (error) {
       console.error('Error creating plot:', error);
