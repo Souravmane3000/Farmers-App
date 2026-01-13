@@ -44,6 +44,11 @@ module.exports = {
           800: '#92400e',
           900: '#78350f',
         },
+        border: 'hsl(var(--border))',
+        input: 'hsl(var(--input))',
+        ring: 'hsl(var(--ring))',
+        background: 'hsl(var(--background))',
+        foreground: 'hsl(var(--foreground))',
       },
       fontSize: {
         'icon-lg': '2rem',

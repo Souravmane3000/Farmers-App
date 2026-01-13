@@ -2,13 +2,15 @@ import { db, dbHelpers } from '@/lib/db/database';
 import { SyncQueue, SyncOperation, SyncStatus } from '@/types';
 
 export class SyncService {
-  private syncInterval: NodeJS.Timeout | null = null;
-  private isOnline: boolean = navigator.onLine;
+  private syncInterval: any = null;
+  private isOnline: boolean = typeof navigator !== 'undefined' ? navigator.onLine : true;
   private isSyncing: boolean = false;
 
   constructor() {
-    this.setupOnlineListener();
-    this.startAutoSync();
+    if (typeof window !== 'undefined') {
+      this.setupOnlineListener();
+      this.startAutoSync();
+    }
   }
 
   private setupOnlineListener() {
@@ -73,10 +75,10 @@ export class SyncService {
   private async syncItem(syncItem: SyncQueue): Promise<void> {
     // In a real app, this would call your backend API
     // For now, we'll simulate the API call
-    
+
     const apiEndpoint = `/api/sync/${syncItem.tableName}`;
-    const method = syncItem.operation === 'create' ? 'POST' : 
-                   syncItem.operation === 'update' ? 'PUT' : 'DELETE';
+    const method = syncItem.operation === 'create' ? 'POST' :
+      syncItem.operation === 'update' ? 'PUT' : 'DELETE';
 
     const response = await fetch(apiEndpoint, {
       method,
