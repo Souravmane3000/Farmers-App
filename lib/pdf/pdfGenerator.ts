@@ -34,7 +34,7 @@ export class PDFGenerator {
     // Header
     doc.setFontSize(20);
     doc.text('Plot-wise Report', margin, 30);
-    
+
     doc.setFontSize(12);
     doc.text(`Plot: ${plot.name}`, margin, 45);
     doc.text(`Size: ${plot.sizeAcres} acres`, margin, 55);
@@ -149,7 +149,7 @@ export class PDFGenerator {
     // Header
     doc.setFontSize(20);
     doc.text('Monthly Expense Report', margin, 30);
-    
+
     doc.setFontSize(12);
     doc.text(`Period: ${format(new Date(year, month - 1, 1), 'MMMM yyyy')}`, margin, 45);
 
@@ -212,7 +212,7 @@ export class PDFGenerator {
     doc.text(`Total Usage Cost: ₹${usageCost.toFixed(2)}`, margin, yPos);
     yPos += 10;
     doc.setFontSize(14);
-    doc.setFont(undefined, 'bold');
+    doc.setFont('helvetica', 'bold');
     doc.text(`Total Spend: ₹${totalSpend.toFixed(2)}`, margin, yPos);
 
     return doc.output('blob');
@@ -230,7 +230,7 @@ export class PDFGenerator {
     // Header
     doc.setFontSize(20);
     doc.text('Stock Audit Report', margin, 30);
-    
+
     doc.setFontSize(12);
     doc.text(`Generated on: ${format(new Date(), 'dd MMM yyyy HH:mm')}`, margin, 45);
 
@@ -353,7 +353,7 @@ export class PDFGenerator {
         .equals([log.farmId, log.itemId])
         .and((s) => s.type === 'in')
         .toArray();
-      
+
       if (stockLogs.length > 0) {
         const avgPrice = stockLogs.reduce((sum, s) => sum + (s.purchasePrice || 0), 0) / stockLogs.length;
         summary[log.itemId].totalCost += log.quantityUsed * avgPrice;
@@ -372,7 +372,7 @@ export class PDFGenerator {
         .equals([log.farmId, log.itemId])
         .and((s) => s.type === 'in')
         .toArray();
-      
+
       if (stockLogs.length > 0) {
         const avgPrice = stockLogs.reduce((sum, s) => sum + (s.purchasePrice || 0), 0) / stockLogs.length;
         totalCost += log.quantityUsed * avgPrice;
