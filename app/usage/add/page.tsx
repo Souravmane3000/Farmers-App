@@ -6,7 +6,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { db } from '@/lib/db/database';
-import { FieldUsageLog, ApplicationMethod, SyncStatus, SyncOperation } from '@/types';
+import { FieldUsageLog, ApplicationMethod, SyncStatus, SyncOperation, StockType } from '@/types';
 import { syncService } from '@/lib/sync/syncService';
 import { alertEngine } from '@/lib/alerts/alertEngine';
 import { dbHelpers } from '@/lib/db/database';
@@ -153,7 +153,7 @@ export default function AddUsagePage() {
         id: `stock_${Date.now()}_${Math.random()}`,
         farmId,
         itemId: data.itemId,
-        type: 'out' as const,
+        type: StockType.OUT,
         quantity: data.quantityUsed,
         date: data.usageDate,
         notes: `Used in field: ${data.notes || 'Field application'}`,
