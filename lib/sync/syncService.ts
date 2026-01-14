@@ -77,8 +77,8 @@ export class SyncService {
     // For now, we'll simulate the API call
 
     const apiEndpoint = `/api/sync/${syncItem.tableName}`;
-    const method = syncItem.operation === 'create' ? 'POST' :
-      syncItem.operation === 'update' ? 'PUT' : 'DELETE';
+    const method = syncItem.operation === SyncOperation.CREATE ? 'POST' :
+      syncItem.operation === SyncOperation.UPDATE ? 'PUT' : 'DELETE';
 
     const response = await fetch(apiEndpoint, {
       method,

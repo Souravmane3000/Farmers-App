@@ -6,6 +6,7 @@ import { pdfGenerator } from '@/lib/pdf/pdfGenerator';
 import BackButton from '@/components/BackButton';
 import Button from '@/components/Button';
 import { db } from '@/lib/db/database';
+import { Plot } from '@/types';
 
 export default function ReportsPage() {
   const [generating, setGenerating] = useState<string | null>(null);
@@ -142,7 +143,7 @@ export default function ReportsPage() {
 }
 
 function PlotSelector({ onSelect, generating }: { onSelect: (plotId: string) => void; generating?: boolean }) {
-  const [plots, setPlots] = useState<any[]>([]);
+  const [plots, setPlots] = useState<Plot[]>([]);
   const [selectedPlot, setSelectedPlot] = useState('');
 
   useEffect(() => {
