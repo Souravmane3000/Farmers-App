@@ -208,11 +208,7 @@ export interface SyncQueue {
   updatedAt: string;
 }
 
-export enum SyncOperation {
-  CREATE = 'create',
-  UPDATE = 'update',
-  DELETE = 'delete',
-}
+export type SyncOperation = 'add' | 'create' | 'update' | 'delete';
 
 export enum SyncStatus {
   SYNCED = 'synced',

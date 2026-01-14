@@ -11,6 +11,7 @@ import {
   SyncQueue,
   User,
   Farm,
+  SyncOperation,
 } from '@/types';
 
 export class FarmDatabase extends Dexie {
@@ -91,7 +92,7 @@ export const dbHelpers = {
     farmId: string,
     tableName: string,
     recordId: string,
-    operation: 'create' | 'update' | 'delete',
+    operation: SyncOperation,
     data: Record<string, any>
   ) {
     await db.syncQueue.add({

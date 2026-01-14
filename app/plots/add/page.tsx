@@ -44,7 +44,7 @@ export default function AddPlotPage() {
       };
 
       await db.plots.add(plot);
-      await syncService.markForSync(farmId, 'plots', plot.id, SyncOperation.CREATE, plot);
+      await syncService.markForSync(farmId, 'plots', plot.id, 'create', plot);
 
       router.push('/plots');
     } catch (error) {

@@ -169,7 +169,7 @@ export default function AddUsagePage() {
         farmId,
         'fieldUsageLogs',
         usageLog.id,
-        SyncOperation.CREATE,
+        'create',
         usageLog
       );
 
@@ -177,7 +177,7 @@ export default function AddUsagePage() {
         farmId,
         'stockLogs',
         stockLog.id,
-        SyncOperation.CREATE,
+        'create',
         stockLog
       );
 
