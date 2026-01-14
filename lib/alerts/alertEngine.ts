@@ -206,13 +206,13 @@ export class AlertEngine {
   }
 
   async getUnreadAlerts(farmId: string): Promise<Alert[]> {
-    return db.alerts
+    const alerts = await db.alerts
       .where('farmId')
       .equals(farmId)
       .and((a) => !a.isRead)
-      .orderBy('createdAt')
-      .reverse()
       .toArray();
+
+    return alerts.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
   }
 
   async markAlertAsRead(alertId: string): Promise<void> {
