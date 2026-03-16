@@ -237,3 +237,342 @@ export interface DashboardStats {
   recentUsage: FieldUsageLog[];
   recentAlerts: Alert[];
 }
+
+// ============================================
+// Extended Data Models
+// ============================================
+
+// Worker/Labor
+export interface Worker {
+  id: string;
+  farmId: string;
+  name: string;
+  phone?: string;
+  email?: string;
+  role?: string;
+  dailyWage?: number;
+  isActive: boolean;
+  hireDate?: string;
+  notes?: string;
+  syncStatus: SyncStatus;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface LaborLog {
+  id: string;
+  farmId: string;
+  workerId: string;
+  plotId?: string;
+  workDate: string;
+  hoursWorked: number;
+  workType: string;
+  description?: string;
+  amountPaid?: number;
+  paymentStatus: PaymentStatus;
+  syncStatus: SyncStatus;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export enum PaymentStatus {
+  PENDING = 'pending',
+  PAID = 'paid',
+  PARTIAL = 'partial',
+}
+
+// Equipment
+export interface Equipment {
+  id: string;
+  farmId: string;
+  name: string;
+  type: string;
+  model?: string;
+  serialNumber?: string;
+  purchaseDate?: string;
+  purchasePrice?: number;
+  warrantyExpiryDate?: string;
+  status: EquipmentStatus;
+  notes?: string;
+  syncStatus: SyncStatus;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export enum EquipmentStatus {
+  ACTIVE = 'active',
+  MAINTENANCE = 'maintenance',
+  SOLD = 'sold',
+  BROKEN = 'broken',
+}
+
+export interface EquipmentMaintenance {
+  id: string;
+  farmId: string;
+  equipmentId: string;
+  maintenanceDate: string;
+  maintenanceType: string;
+  description?: string;
+  cost?: number;
+  nextMaintenanceDate?: string;
+  performedBy?: string;
+  syncStatus: SyncStatus;
+  createdAt: string;
+  updatedAt: string;
+}
+
+// Weather
+export interface WeatherLog {
+  id: string;
+  farmId: string;
+  logDate: string;
+  temperatureHigh?: number;
+  temperatureLow?: number;
+  rainfallMm?: number;
+  humidityPercent?: number;
+  windSpeedKmh?: number;
+  windDirection?: string;
+  weatherCondition?: string;
+  notes?: string;
+  syncStatus: SyncStatus;
+  createdAt: string;
+  updatedAt: string;
+}
+
+// Irrigation
+export interface IrrigationSchedule {
+  id: string;
+  farmId: string;
+  plotId: string;
+  cropId?: string;
+  scheduledDate: string;
+  scheduledTime?: string;
+  durationMinutes?: number;
+  waterAmountLitres?: number;
+  status: IrrigationStatus;
+  method?: string;
+  notes?: string;
+  completedAt?: string;
+  syncStatus: SyncStatus;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export enum IrrigationStatus {
+  SCHEDULED = 'scheduled',
+  COMPLETED = 'completed',
+  CANCELLED = 'cancelled',
+  SKIPPED = 'skipped',
+}
+
+// Harvest
+export interface Harvest {
+  id: string;
+  farmId: string;
+  plotId: string;
+  cropId: string;
+  harvestDate: string;
+  quantity: number;
+  unit: string;
+  qualityGrade?: string;
+  salePricePerUnit?: number;
+  totalRevenue?: number;
+  buyer?: string;
+  storageLocation?: string;
+  notes?: string;
+  syncStatus: SyncStatus;
+  createdAt: string;
+  updatedAt: string;
+}
+
+// Crop Rotation
+export interface CropRotation {
+  id: string;
+  farmId: string;
+  plotId: string;
+  previousCrop: string;
+  newCrop: string;
+  rotationDate: string;
+  reason?: string;
+  notes?: string;
+  syncStatus: SyncStatus;
+  createdAt: string;
+  updatedAt: string;
+}
+
+// Tasks
+export interface Task {
+  id: string;
+  farmId: string;
+  title: string;
+  description?: string;
+  category?: TaskCategory;
+  priority: TaskPriority;
+  status: TaskStatus;
+  dueDate?: string;
+  assignedWorkerId?: string;
+  relatedPlotId?: string;
+  relatedCropId?: string;
+  relatedItemId?: string;
+  relatedEquipmentId?: string;
+  completedAt?: string;
+  syncStatus: SyncStatus;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export enum TaskCategory {
+  GENERAL = 'general',
+  PLANTING = 'planting',
+  HARVESTING = 'harvesting',
+  IRRIGATION = 'irrigation',
+  FERTILIZER = 'fertilizer',
+  PESTICIDE = 'pesticide',
+  EQUIPMENT = 'equipment',
+  MAINTENANCE = 'maintenance',
+  OTHER = 'other',
+}
+
+export enum TaskPriority {
+  LOW = 'low',
+  MEDIUM = 'medium',
+  HIGH = 'high',
+  URGENT = 'urgent',
+}
+
+export enum TaskStatus {
+  PENDING = 'pending',
+  IN_PROGRESS = 'in_progress',
+  COMPLETED = 'completed',
+  CANCELLED = 'cancelled',
+}
+
+// Activity Log (Audit Trail)
+export interface ActivityLog {
+  id: string;
+  farmId: string;
+  userId?: string;
+  action: string;
+  entityType: string;
+  entityId?: string;
+  oldValues?: Record<string, any>;
+  newValues?: Record<string, any>;
+  ipAddress?: string;
+  userAgent?: string;
+  createdAt: string;
+}
+
+// Notifications
+export interface Notification {
+  id: string;
+  farmId: string;
+  type: string;
+  title: string;
+  message: string;
+  relatedEntityType?: string;
+  relatedEntityId?: string;
+  isRead: boolean;
+  scheduledFor?: string;
+  sentAt?: string;
+  createdAt: string;
+}
+
+// Farm Contacts
+export interface FarmContact {
+  id: string;
+  farmId: string;
+  name: string;
+  role?: string;
+  phone?: string;
+  email?: string;
+  isPrimary: boolean;
+  notes?: string;
+  syncStatus: SyncStatus;
+  createdAt: string;
+  updatedAt: string;
+}
+
+// Soil Tests
+export interface SoilTest {
+  id: string;
+  farmId: string;
+  plotId: string;
+  testDate: string;
+  phLevel?: number;
+  nitrogenLevel?: number;
+  phosphorusLevel?: number;
+  potassiumLevel?: number;
+  organicMatterPercent?: number;
+  soilType?: string;
+  labName?: string;
+  recommendations?: string;
+  nextTestDate?: string;
+  syncStatus: SyncStatus;
+  createdAt: string;
+  updatedAt: string;
+}
+
+// ============================================
+// Extended Views
+// ============================================
+
+export interface LaborCostByPlot {
+  plotId: string;
+  farmId: string;
+  plotName: string;
+  totalLaborCost: number;
+  uniqueWorkers: number;
+  totalHours: number;
+}
+
+export interface MaintenanceDue {
+  equipmentId: string;
+  farmId: string;
+  equipmentName: string;
+  type: string;
+  nextMaintenanceDate?: string;
+  lastMaintenanceType?: string;
+  lastMaintenanceDate?: string;
+  status: 'no_schedule' | 'overdue' | 'due_soon' | 'ok';
+}
+
+export interface MonthlyExpenseSummary {
+  farmId: string;
+  year: number;
+  month: number;
+  category: ExpenseCategory;
+  totalAmount: number;
+  transactionCount: number;
+}
+
+export interface HarvestRevenueByCrop {
+  cropId: string;
+  farmId: string;
+  cropName: string;
+  plotId: string;
+  totalQuantity: number;
+  totalRevenue: number;
+  avgPricePerUnit: number;
+  harvestCount: number;
+}
+
+export interface WorkerProductivity {
+  workerId: string;
+  farmId: string;
+  workerName: string;
+  role?: string;
+  totalShifts: number;
+  totalHours: number;
+  totalPaid: number;
+  avgHoursPerShift: number;
+}
+
+// Extended Dashboard Stats
+export interface ExtendedDashboardStats extends DashboardStats {
+  totalWorkers: number;
+  activeTasks: number;
+  pendingIrrigations: number;
+  maintenanceOverdue: number;
+  monthlyRevenue: number;
+  weatherLastLog?: WeatherLog;
+}
