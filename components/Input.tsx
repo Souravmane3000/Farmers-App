@@ -15,11 +15,11 @@ export default function Input({ label, error, className, ...props }: InputProps)
         </label>
       )}
       <input
-        className={clsx('input-field', error && 'border-danger-500 focus:ring-danger-500', className)}
+        className={clsx('input-field', error && 'border-red-500 focus:ring-red-500', className)}
         {...props}
       />
       {error && (
-        <p className="mt-1 text-sm text-danger-600">{error}</p>
+        <p className="mt-1 text-sm text-red-600">{error}</p>
       )}
     </div>
   );

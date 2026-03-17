@@ -7,7 +7,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { v4 as uuidv4 } from 'uuid';
 import { db } from '@/lib/db/database';
-import { FieldUsageLog, ApplicationMethod, SyncStatus, StockType } from '@/types';
+import { FieldUsageLog, ApplicationMethod, SyncStatus, StockType, StockLog } from '@/types';
 import { syncService } from '@/lib/sync/syncService';
 import { alertEngine } from '@/lib/alerts/alertEngine';
 import { dbHelpers } from '@/lib/db/database';
@@ -22,7 +22,7 @@ const usageSchema = z.object({
   plotId: z.string().min(1, 'Plot is required'),
   cropId: z.string().min(1, 'Crop is required'),
   itemId: z.string().min(1, 'Item is required'),
-  quantityUsed: z.string().refine((val) => {
+  quantityUsed: z.string().min(1, 'Quantity is required').refine((val) => {
     const num = parseFloat(val);
     return !isNaN(num) && num > 0;
   }, 'Quantity must be greater than 0'),
@@ -60,7 +60,7 @@ export default function AddUsagePage() {
     formState: { errors, isSubmitting },
   } = useForm<UsageFormData>({
     resolver: zodResolver(usageSchema),
-    mode: 'onBlur',
+    mode: 'onChange',
     defaultValues: {
       usageDate: format(new Date(), 'yyyy-MM-dd'),
       usageTime: format(new Date(), 'HH:mm'),
@@ -147,19 +147,19 @@ export default function AddUsagePage() {
   const onSubmit = async (data: UsageFormData) => {
     setErrorMessage(null);
     
-    const quantityUsed = parseFloat(data.quantityUsed);
-    if (isNaN(quantityUsed) || quantityUsed <= 0) {
-      setErrorMessage('Invalid quantity');
-      return;
-    }
-
-    if (quantityUsed > availableStock) {
-      setErrorMessage(`Insufficient stock! Available: ${availableStock}`);
-      return;
-    }
-
     try {
-      const farmId = 'farm_1'; // Placeholder - get from auth
+      const quantityUsed = parseFloat(data.quantityUsed);
+      if (isNaN(quantityUsed) || quantityUsed <= 0) {
+        setErrorMessage('Invalid quantity. Please enter a positive number.');
+        return;
+      }
+
+      if (quantityUsed > availableStock) {
+        setErrorMessage(`Insufficient stock! Available: ${availableStock}. Requested: ${quantityUsed}`);
+        return;
+      }
+
+      const farmId = 'farm_1'; // TODO: Get from auth context
       const rainProbability = parseFloat(data.rainProbability) || 0;
       const temperature = data.temperature ? parseFloat(data.temperature) : undefined;
 
@@ -176,7 +176,7 @@ export default function AddUsagePage() {
         rainProbability,
         weatherCondition: data.weatherCondition || undefined,
         temperature,
-        notes: data.notes?.trim(),
+        notes: data.notes?.trim() || undefined,
         syncStatus: SyncStatus.PENDING,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
@@ -186,7 +186,7 @@ export default function AddUsagePage() {
       await db.fieldUsageLogs.add(usageLog);
 
       // Auto-deduct stock
-      const stockLog = {
+      const stockLog: StockLog = {
         id: uuidv4(),
         farmId,
         itemId: data.itemId,
@@ -202,29 +202,17 @@ export default function AddUsagePage() {
       await db.stockLogs.add(stockLog);
 
       // Mark for sync with Supabase
-      await syncService.markForSync(
-        farmId,
-        'fieldUsageLogs',
-        usageLog.id,
-        'create',
-        usageLog
-      );
-
-      await syncService.markForSync(
-        farmId,
-        'stockLogs',
-        stockLog.id,
-        'create',
-        stockLog
-      );
+      await syncService.markForSync(farmId, 'fieldUsageLogs', usageLog.id, 'create', usageLog);
+      await syncService.markForSync(farmId, 'stockLogs', stockLog.id, 'create', stockLog);
 
       // Check alerts
       await alertEngine.checkAllAlerts(farmId);
 
-      alert('Field usage recorded successfully!');
+      // Success - redirect
       router.push('/');
+      
     } catch (error) {
-      console.error('Error saving usage:', error);
+      console.error('Error saving field usage:', error);
       const errorMsg = error instanceof Error ? error.message : 'Failed to save field usage. Please try again.';
       setErrorMessage(errorMsg);
     }

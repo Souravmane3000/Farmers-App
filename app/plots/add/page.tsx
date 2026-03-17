@@ -14,11 +14,11 @@ import Button from '@/components/Button';
 import Input from '@/components/Input';
 
 const plotSchema = z.object({
-  name: z.string().min(1, 'Plot name is required').trim(),
-  sizeAcres: z.string().refine((val) => {
+  name: z.string().min(1, 'Plot name is required'),
+  sizeAcres: z.string().min(1, 'Size is required').refine((val) => {
     const num = parseFloat(val);
     return !isNaN(num) && num > 0;
-  }, 'Size must be greater than 0'),
+  }, 'Size must be a valid number greater than 0'),
   notes: z.string().optional(),
 });
 
@@ -33,17 +33,17 @@ export default function AddPlotPage() {
     formState: { errors, isSubmitting },
   } = useForm<PlotFormData>({
     resolver: zodResolver(plotSchema),
-    mode: 'onBlur',
+    mode: 'onChange',
   });
 
   const onSubmit = async (data: PlotFormData) => {
     setErrorMessage(null);
     try {
-      const farmId = 'farm_1'; // Placeholder - get from auth
+      const farmId = 'farm_1'; // TODO: Get from auth context
       const sizeAcres = parseFloat(data.sizeAcres);
       
       if (isNaN(sizeAcres) || sizeAcres <= 0) {
-        setErrorMessage('Invalid size value');
+        setErrorMessage('Invalid size value. Please enter a positive number.');
         return;
       }
 
@@ -52,21 +52,21 @@ export default function AddPlotPage() {
         farmId,
         name: data.name.trim(),
         sizeAcres,
-        notes: data.notes?.trim(),
+        notes: data.notes?.trim() || undefined,
         syncStatus: SyncStatus.PENDING,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
       };
 
-      // Save to local database first
+      // Save to local database
       await db.plots.add(plot);
       
       // Mark for sync with Supabase
       await syncService.markForSync(farmId, 'plots', plot.id, 'create', plot);
 
-      // Show success message and redirect
-      alert('Plot created successfully!');
+      // Success - redirect to plots list
       router.push('/plots');
+      
     } catch (error) {
       console.error('Error creating plot:', error);
       const errorMsg = error instanceof Error ? error.message : 'Failed to create plot. Please try again.';

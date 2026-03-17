@@ -16,17 +16,22 @@ export default function Select({ label, error, options, className, ...props }: S
         </label>
       )}
       <select
-        className={clsx('input-field', error && 'border-danger-500 focus:ring-danger-500', className)}
+        className={clsx('input-field', error && 'border-red-500 focus:ring-red-500', className)}
         {...props}
       >
-        {options.map((option) => (
-          <option key={option.value} value={option.value}>
-            {option.label}
-          </option>
-        ))}
+        <option value="">-- Select an option --</option>
+        {options && options.length > 0 ? (
+          options.map((option) => (
+            <option key={option.value} value={option.value}>
+              {option.label}
+            </option>
+          ))
+        ) : (
+          <option disabled>No options available</option>
+        )}
       </select>
       {error && (
-        <p className="mt-1 text-sm text-danger-600">{error}</p>
+        <p className="mt-1 text-sm text-red-600">{error}</p>
       )}
     </div>
   );
