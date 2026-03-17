@@ -19,9 +19,9 @@ export default function Button({
   const baseClasses = 'font-semibold rounded-lg transition-all active:scale-95 flex items-center justify-center gap-2';
   
   const variantClasses = {
-    primary: 'bg-primary-600 text-white hover:bg-primary-700 shadow-lg',
-    secondary: 'bg-gray-200 text-gray-800 hover:bg-gray-300',
-    danger: 'bg-danger-600 text-white hover:bg-danger-700',
+    primary: 'bg-green-600 text-white hover:bg-green-700 shadow-lg',
+    secondary: 'bg-gray-300 text-gray-900 hover:bg-gray-400',
+    danger: 'bg-red-600 text-white hover:bg-red-700',
   };
 
   const sizeClasses = {

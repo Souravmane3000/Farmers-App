@@ -28,6 +28,7 @@ export class SyncService {
     // Sync every 30 seconds when online
     this.syncInterval = setInterval(() => {
       if (this.isOnline && !this.isSyncing) {
+        console.log('[SyncService] Auto-sync triggered (every 30 seconds)');
         this.sync();
       }
     }, 30000);
@@ -35,23 +36,34 @@ export class SyncService {
 
   async sync(farmId?: string): Promise<void> {
     if (!this.isOnline || this.isSyncing) {
+      if (!this.isOnline) {
+        console.log('[SyncService] Offline - skipping sync');
+      }
+      if (this.isSyncing) {
+        console.log('[SyncService] Sync already in progress - skipping');
+      }
       return;
     }
 
     this.isSyncing = true;
+    console.log('[SyncService] Starting sync...');
 
     try {
       const pendingSyncs = farmId
         ? await db.syncQueue.where('farmId').equals(farmId).toArray()
         : await db.syncQueue.toArray();
 
+      console.log(`[SyncService] Found ${pendingSyncs.length} items to sync`);
+
       for (const syncItem of pendingSyncs) {
         try {
+          console.log(`[SyncService] Syncing ${syncItem.operation} for ${syncItem.tableName}:${syncItem.recordId}`);
           await this.syncItem(syncItem);
           // Remove from queue after successful sync
           await db.syncQueue.delete(syncItem.id);
+          console.log(`[SyncService] ✅ Successfully synced ${syncItem.tableName}:${syncItem.recordId}`);
         } catch (error) {
-          console.error(`Sync failed for ${syncItem.tableName}:${syncItem.recordId}`, error);
+          console.error(`[SyncService] ❌ Sync failed for ${syncItem.tableName}:${syncItem.recordId}`, error);
           // Increment retry count
           await db.syncQueue.update(syncItem.id, {
             retryCount: syncItem.retryCount + 1,
@@ -80,6 +92,9 @@ export class SyncService {
     const method = syncItem.operation === 'create' ? 'POST' :
       syncItem.operation === 'update' ? 'PUT' : 'DELETE';
 
+    console.log(`[SyncService] Making ${method} request to ${apiEndpoint}`);
+    console.log(`[SyncService] Data:`, syncItem.data);
+
     const response = await fetch(apiEndpoint, {
       method,
       headers: {
@@ -88,11 +103,16 @@ export class SyncService {
       body: method !== 'DELETE' ? JSON.stringify(syncItem.data) : undefined,
     });
 
+    console.log(`[SyncService] Response status: ${response.status}`);
+
     if (!response.ok) {
-      throw new Error(`API error: ${response.statusText}`);
+      const errorText = await response.text();
+      console.error(`[SyncService] API error response:`, errorText);
+      throw new Error(`API error: ${response.statusText} - ${errorText}`);
     }
 
     const result = await response.json();
+    console.log(`[SyncService] API success response:`, result);
 
     // Update local record sync status
     await this.updateLocalSyncStatus(syncItem.tableName, syncItem.recordId, SyncStatus.SYNCED);
@@ -122,15 +142,21 @@ export class SyncService {
     operation: SyncOperation,
     data: Record<string, any>
   ): Promise<void> {
+    console.log(`[SyncService] Marking ${tableName}:${recordId} for ${operation} sync`);
+    
     // Update local sync status
     await this.updateLocalSyncStatus(tableName, recordId, SyncStatus.PENDING);
 
     // Add to sync queue
     await dbHelpers.addToSyncQueue(farmId, tableName, recordId, operation, data);
+    console.log(`[SyncService] Added to sync queue - online status: ${this.isOnline}`);
 
     // Try to sync immediately if online
     if (this.isOnline) {
+      console.log(`[SyncService] Online - attempting immediate sync`);
       await this.sync(farmId);
+    } else {
+      console.log(`[SyncService] Offline - will sync when reconnected`);
     }
   }
 
