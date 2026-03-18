@@ -5,6 +5,7 @@ export interface User {
   email: string;
   name: string;
   farmName: string;
+  passwordHash?: string;
   createdAt: string;
   updatedAt: string;
 }

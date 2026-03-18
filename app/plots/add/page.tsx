@@ -8,6 +8,7 @@ import { z } from 'zod';
 import { v4 as uuidv4 } from 'uuid';
 import { db } from '@/lib/db/database';
 import { Plot, SyncStatus } from '@/types';
+import { useAuth } from '@/contexts/AuthContext';
 import { syncService } from '@/lib/sync/syncService';
 import BackButton from '@/components/BackButton';
 import Button from '@/components/Button';
@@ -26,6 +27,7 @@ type PlotFormData = z.infer<typeof plotSchema>;
 
 export default function AddPlotPage() {
   const router = useRouter();
+  const { farm } = useAuth();
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const {
     register,
@@ -38,8 +40,12 @@ export default function AddPlotPage() {
 
   const onSubmit = async (data: PlotFormData) => {
     setErrorMessage(null);
+    if (!farm) {
+      setErrorMessage('Farm not found. Please login again.');
+      return;
+    }
+
     try {
-      const farmId = 'farm_1'; // TODO: Get from auth context
       const sizeAcres = parseFloat(data.sizeAcres);
       
       if (isNaN(sizeAcres) || sizeAcres <= 0) {
@@ -49,7 +55,7 @@ export default function AddPlotPage() {
 
       const plot: Plot = {
         id: uuidv4(),
-        farmId,
+        farmId: farm.id,
         name: data.name.trim(),
         sizeAcres,
         notes: data.notes?.trim() || undefined,
@@ -62,7 +68,7 @@ export default function AddPlotPage() {
       await db.plots.add(plot);
       
       // Mark for sync with Supabase
-      await syncService.markForSync(farmId, 'plots', plot.id, 'create', plot);
+      await syncService.markForSync(farm.id, 'plots', plot.id, 'create', plot);
 
       // Success - redirect to plots list
       router.push('/plots');

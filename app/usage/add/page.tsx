@@ -8,6 +8,7 @@ import { z } from 'zod';
 import { v4 as uuidv4 } from 'uuid';
 import { db } from '@/lib/db/database';
 import { FieldUsageLog, ApplicationMethod, SyncStatus, StockType, StockLog } from '@/types';
+import { useAuth } from '@/contexts/AuthContext';
 import { syncService } from '@/lib/sync/syncService';
 import { alertEngine } from '@/lib/alerts/alertEngine';
 import { dbHelpers } from '@/lib/db/database';
@@ -42,6 +43,7 @@ type UsageFormData = z.infer<typeof usageSchema>;
 
 export default function AddUsagePage() {
   const router = useRouter();
+  const { farm } = useAuth();
   const [plots, setPlots] = useState<any[]>([]);
   const [crops, setCrops] = useState<any[]>([]);
   const [items, setItems] = useState<any[]>([]);
@@ -74,8 +76,10 @@ export default function AddUsagePage() {
   const watchedItemId = watch('itemId');
 
   useEffect(() => {
-    loadData();
-  }, []);
+    if (farm) {
+      loadData();
+    }
+  }, [farm]);
 
   useEffect(() => {
     if (watchedRainProbability !== undefined && watchedRainProbability !== '') {
@@ -100,14 +104,14 @@ export default function AddUsagePage() {
   }, [watchedItemId]);
 
   const loadData = async () => {
+    if (!farm) return;
     try {
       setLoadingData(true);
-      const farmId = 'farm_1'; // Placeholder
 
-      const plotsData = await db.plots.where('farmId').equals(farmId).toArray();
+      const plotsData = await db.plots.where('farmId').equals(farm.id).toArray();
       setPlots(plotsData);
 
-      const itemsData = await db.inventoryItems.where('farmId').equals(farmId).toArray();
+      const itemsData = await db.inventoryItems.where('farmId').equals(farm.id).toArray();
       setItems(itemsData);
     } catch (error) {
       console.error('Error loading data:', error);
@@ -118,10 +122,11 @@ export default function AddUsagePage() {
   };
 
   const loadCropsForPlot = async (plotId: string) => {
+    if (!farm) return;
     try {
       const cropsData = await db.crops
         .where('[farmId+plotId]')
-        .equals(['farm_1', plotId])
+        .equals([farm.id, plotId])
         .toArray();
       setCrops(cropsData);
 
@@ -135,8 +140,9 @@ export default function AddUsagePage() {
   };
 
   const loadStockForItem = async (itemId: string) => {
+    if (!farm) return;
     try {
-      const stock = await dbHelpers.getCurrentStock(itemId, 'farm_1');
+      const stock = await dbHelpers.getCurrentStock(itemId, farm.id);
       setAvailableStock(stock);
     } catch (error) {
       console.error('Error loading stock:', error);
@@ -146,6 +152,10 @@ export default function AddUsagePage() {
 
   const onSubmit = async (data: UsageFormData) => {
     setErrorMessage(null);
+    if (!farm) {
+      setErrorMessage('Farm not found. Please login again.');
+      return;
+    }
     
     try {
       const quantityUsed = parseFloat(data.quantityUsed);
@@ -159,13 +169,12 @@ export default function AddUsagePage() {
         return;
       }
 
-      const farmId = 'farm_1'; // TODO: Get from auth context
       const rainProbability = parseFloat(data.rainProbability) || 0;
       const temperature = data.temperature ? parseFloat(data.temperature) : undefined;
 
       const usageLog: FieldUsageLog = {
         id: uuidv4(),
-        farmId,
+        farmId: farm.id,
         plotId: data.plotId,
         cropId: data.cropId,
         itemId: data.itemId,
@@ -188,7 +197,7 @@ export default function AddUsagePage() {
       // Auto-deduct stock
       const stockLog: StockLog = {
         id: uuidv4(),
-        farmId,
+        farmId: farm.id,
         itemId: data.itemId,
         type: StockType.OUT,
         quantity: quantityUsed,
@@ -202,11 +211,11 @@ export default function AddUsagePage() {
       await db.stockLogs.add(stockLog);
 
       // Mark for sync with Supabase
-      await syncService.markForSync(farmId, 'fieldUsageLogs', usageLog.id, 'create', usageLog);
-      await syncService.markForSync(farmId, 'stockLogs', stockLog.id, 'create', stockLog);
+      await syncService.markForSync(farm.id, 'fieldUsageLogs', usageLog.id, 'create', usageLog);
+      await syncService.markForSync(farm.id, 'stockLogs', stockLog.id, 'create', stockLog);
 
       // Check alerts
-      await alertEngine.checkAllAlerts(farmId);
+      await alertEngine.checkAllAlerts(farm.id);
 
       // Success - redirect
       router.push('/');

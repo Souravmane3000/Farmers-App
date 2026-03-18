@@ -5,21 +5,25 @@ import Link from 'next/link';
 import { Plus, MapPin, Edit, Trash2 } from 'lucide-react';
 import { db } from '@/lib/db/database';
 import { Plot } from '@/types';
+import { useAuth } from '@/contexts/AuthContext';
 import BackButton from '@/components/BackButton';
 import Button from '@/components/Button';
 
 export default function PlotsPage() {
+  const { farm } = useAuth();
   const [plots, setPlots] = useState<Plot[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    loadPlots();
-  }, []);
+    if (farm) {
+      loadPlots();
+    }
+  }, [farm]);
 
   const loadPlots = async () => {
+    if (!farm) return;
     try {
-      const farmId = 'farm_1'; // Placeholder - get from auth
-      const plotsData = await db.plots.where('farmId').equals(farmId).toArray();
+      const plotsData = await db.plots.where('farmId').equals(farm.id).toArray();
       setPlots(plotsData);
     } catch (error) {
       console.error('Error loading plots:', error);

@@ -5,22 +5,26 @@ import Link from 'next/link';
 import { Plus, Package, AlertTriangle, ArrowUp, ArrowDown } from 'lucide-react';
 import { db, dbHelpers } from '@/lib/db/database';
 import { CurrentStock, InventoryItem } from '@/types';
+import { useAuth } from '@/contexts/AuthContext';
 import BackButton from '@/components/BackButton';
 import Button from '@/components/Button';
 
 export default function InventoryPage() {
+  const { farm } = useAuth();
   const [stocks, setStocks] = useState<CurrentStock[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<'all' | 'low'>('all');
 
   useEffect(() => {
-    loadInventory();
-  }, []);
+    if (farm) {
+      loadInventory();
+    }
+  }, [farm]);
 
   const loadInventory = async () => {
+    if (!farm) return;
     try {
-      const farmId = 'farm_1'; // Placeholder
-      const stocksData = await dbHelpers.getAllCurrentStocks(farmId);
+      const stocksData = await dbHelpers.getAllCurrentStocks(farm.id);
       setStocks(stocksData);
     } catch (error) {
       console.error('Error loading inventory:', error);

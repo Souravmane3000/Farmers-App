@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { 
   PlusCircle, 
@@ -14,11 +15,15 @@ import {
   ArrowUpRight, 
   Wifi,
   WifiOff,
-  AlertCircle
+  AlertCircle,
+  LogOut
 } from 'lucide-react';
 import { db } from '@/lib/db/database';
+import { useAuth } from '@/contexts/AuthContext';
 
 export default function Dashboard() {
+  const router = useRouter();
+  const { user, farm, isLoading, isAuthenticated, logout } = useAuth();
   const [isOnline, setIsOnline] = useState(true);
   const [pendingSyncs, setPendingSyncs] = useState(0);
   const [unreadAlerts, setUnreadAlerts] = useState(0);
@@ -35,6 +40,12 @@ export default function Dashboard() {
   ];
 
   useEffect(() => {
+    if (!isLoading && !isAuthenticated) {
+      router.push('/auth/login');
+    }
+  }, [isLoading, isAuthenticated, router]);
+
+  useEffect(() => {
     setIsOnline(navigator.onLine);
     
     const handleOnline = () => setIsOnline(true);
@@ -44,7 +55,9 @@ export default function Dashboard() {
     window.addEventListener('offline', handleOffline);
 
     // Load initial data
-    loadDashboardData();
+    if (isAuthenticated) {
+      loadDashboardData();
+    }
 
     return () => {
       window.removeEventListener('online', handleOnline);
@@ -77,9 +90,21 @@ export default function Dashboard() {
 
   return (
     <div className="flex-1 w-full bg-white md:bg-gray-50/50 md:rounded-[2rem] h-full overflow-y-auto overflow-x-hidden hide-scrollbar">
+      {/* Loading State */}
+      {isLoading && (
+        <div className="fixed inset-0 bg-white/50 backdrop-blur-sm flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 shadow-lg">
+            <div className="w-12 h-12 border-4 border-green-200 border-t-green-600 rounded-full animate-spin"></div>
+          </div>
+        </div>
+      )}
+
       {/* Header */}
       <header className="px-6 pt-10 pb-4 md:sticky top-0 bg-white/80 backdrop-blur-xl z-20 flex items-center justify-between border-b border-gray-100">
-        <h1 className="text-2xl font-bold text-gray-800 tracking-tight">Farm Overview</h1>
+        <div>
+          <h1 className="text-2xl font-bold text-gray-800 tracking-tight">Farm Overview</h1>
+          {user && <p className="text-sm text-gray-600 mt-1">{farm?.name || 'My Farm'}</p>}
+        </div>
         <div className="flex gap-4 items-center text-gray-400">
           <div className="flex items-center gap-2 mr-2">
             {isOnline ? (
@@ -100,6 +125,16 @@ export default function Dashboard() {
               <span className="absolute top-0 right-0 w-2.5 h-2.5 bg-[#db513f] border-2 border-white rounded-full"></span>
             )}
           </Link>
+          <button
+            onClick={() => {
+              logout();
+              router.push('/auth/login');
+            }}
+            className="ml-4 p-2 hover:bg-gray-100 rounded-lg transition-colors"
+            title="Logout"
+          >
+            <LogOut className="w-5 h-5 text-gray-600 hover:text-red-600" />
+          </button>
         </div>
       </header>
       
