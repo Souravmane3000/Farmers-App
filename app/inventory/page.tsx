@@ -2,22 +2,27 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { Plus, Package, AlertTriangle, ArrowUp, ArrowDown } from 'lucide-react';
+import { Plus, Package, AlertTriangle, ArrowUp, ArrowDown, Save, CheckCircle, AlertCircle } from 'lucide-react';
 import { db, dbHelpers } from '@/lib/db/database';
 import { CurrentStock, InventoryItem } from '@/types';
 import { useAuth } from '@/contexts/AuthContext';
 import BackButton from '@/components/BackButton';
 import Button from '@/components/Button';
+import { SyncService } from '@/lib/sync/syncService';
 
 export default function InventoryPage() {
   const { farm } = useAuth();
   const [stocks, setStocks] = useState<CurrentStock[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<'all' | 'low'>('all');
+  const [syncStatus, setSyncStatus] = useState<'idle' | 'syncing' | 'success' | 'error'>('idle');
+  const [syncMessage, setSyncMessage] = useState('');
+  const [pendingSyncCount, setPendingSyncCount] = useState(0);
 
   useEffect(() => {
     if (farm) {
       loadInventory();
+      loadPendingSyncCount();
     }
   }, [farm]);
 
@@ -30,6 +35,53 @@ export default function InventoryPage() {
       console.error('Error loading inventory:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const loadPendingSyncCount = async () => {
+    if (!farm) return;
+    try {
+      const pendingSyncs = await db.syncQueue.where('farmId').equals(farm.id).toArray();
+      setPendingSyncCount(pendingSyncs.length);
+    } catch (error) {
+      console.error('Error loading pending syncs:', error);
+    }
+  };
+
+  const handleSync = async () => {
+    if (!farm) return;
+    
+    setSyncStatus('syncing');
+    setSyncMessage('');
+    
+    try {
+      const syncService = new SyncService();
+      await syncService.sync(farm.id);
+      
+      // Wait a bit for the UI to reflect changes
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
+      // Reload sync count
+      await loadPendingSyncCount();
+      
+      setSyncStatus('success');
+      setSyncMessage('✓ All data saved to Supabase successfully!');
+      
+      // Reset success message after 3 seconds
+      setTimeout(() => {
+        setSyncStatus('idle');
+        setSyncMessage('');
+      }, 3000);
+    } catch (error) {
+      console.error('Sync error:', error);
+      setSyncStatus('error');
+      setSyncMessage(`Error: ${error instanceof Error ? error.message : 'Failed to sync data'}`);
+      
+      // Reset error message after 5 seconds
+      setTimeout(() => {
+        setSyncStatus('idle');
+        setSyncMessage('');
+      }, 5000);
     }
   };
 
@@ -53,12 +105,56 @@ export default function InventoryPage() {
             <BackButton href="/" />
             <h1 className="text-2xl font-bold">Inventory</h1>
           </div>
-          <Link href="/inventory/add">
-            <Button variant="secondary" size="sm" icon={<Plus className="w-5 h-5" />}>
-              Add Item
-            </Button>
-          </Link>
+          <div className="flex gap-2">
+            <button
+              onClick={handleSync}
+              disabled={syncStatus === 'syncing' || pendingSyncCount === 0}
+              className={`flex items-center gap-2 px-4 py-2 rounded-lg font-semibold transition ${
+                syncStatus === 'syncing'
+                  ? 'bg-white/30 text-white cursor-not-allowed'
+                  : pendingSyncCount === 0
+                  ? 'bg-white/20 text-white/70 cursor-not-allowed'
+                  : syncStatus === 'success'
+                  ? 'bg-green-500 text-white hover:bg-green-600'
+                  : syncStatus === 'error'
+                  ? 'bg-red-500 text-white hover:bg-red-600'
+                  : 'bg-white text-primary-600 hover:bg-gray-100'
+              }`}
+            >
+              {syncStatus === 'syncing' ? (
+                <>
+                  <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                  Saving...
+                </>
+              ) : syncStatus === 'success' ? (
+                <>
+                  <CheckCircle className="w-5 h-5" />
+                  Saved!
+                </>
+              ) : syncStatus === 'error' ? (
+                <>
+                  <AlertCircle className="w-5 h-5" />
+                  Error
+                </>
+              ) : (
+                <>
+                  <Save className="w-5 h-5" />
+                  Save ({pendingSyncCount})
+                </>
+              )}
+            </button>
+            <Link href="/inventory/add">
+              <Button variant="secondary" size="sm" icon={<Plus className="w-5 h-5" />}>
+                Add Item
+              </Button>
+            </Link>
+          </div>
         </div>
+        {syncMessage && (
+          <div className={`mt-2 text-sm ${syncStatus === 'error' ? 'text-red-100' : 'text-green-100'}`}>
+            {syncMessage}
+          </div>
+        )}
       </header>
 
       <main className="p-4 max-w-4xl mx-auto">
