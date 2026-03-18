@@ -187,14 +187,14 @@ export default function AddCropPage() {
             disabled={syncStatus === 'syncing' || savedCrops === 0}
             className={`flex items-center gap-2 px-4 py-2 rounded-lg font-semibold transition ${
               syncStatus === 'syncing'
-                ? 'bg-white/30 text-white cursor-not-allowed'
+                ? 'bg-white/30 text-white cursor-not-allowed animate-pulse'
                 : savedCrops === 0
-                ? 'bg-white/20 text-white/70 cursor-not-allowed'
+                ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
                 : syncStatus === 'success'
                 ? 'bg-green-500 text-white hover:bg-green-600'
                 : syncStatus === 'error'
                 ? 'bg-red-500 text-white hover:bg-red-600'
-                : 'bg-white text-primary-600 hover:bg-gray-100'
+                : 'bg-green-700 text-white hover:bg-green-800 cursor-pointer shadow-md'
             }`}
           >
             {syncStatus === 'syncing' ? (
