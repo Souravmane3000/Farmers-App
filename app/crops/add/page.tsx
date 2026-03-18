@@ -14,7 +14,7 @@ import BackButton from '@/components/BackButton';
 import Button from '@/components/Button';
 import Input from '@/components/Input';
 import Select from '@/components/Select';
-import { Save, CheckCircle, AlertCircle } from 'lucide-react';
+import { Save, CheckCircle, AlertCircle, Loader } from 'lucide-react';
 
 const cropSchema = z.object({
   plotId: z.string().min(1, 'Plot is required'),
@@ -34,14 +34,13 @@ export default function AddCropPage() {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [syncStatus, setSyncStatus] = useState<'idle' | 'syncing' | 'success' | 'error'>('idle');
-  const [savedCrops, setSavedCrops] = useState<number>(0);
   const [loadingPlots, setLoadingPlots] = useState(true);
 
   const {
     register,
     handleSubmit,
     reset,
-    formState: { errors, isSubmitting },
+    formState: { errors, isValid },
   } = useForm<CropFormData>({
     resolver: zodResolver(cropSchema),
     mode: 'onChange',
@@ -66,13 +65,14 @@ export default function AddCropPage() {
     }
   };
 
-  const onSubmitLocal = async (data: CropFormData) => {
-    console.log('[CropAdd] Form submitted with data:', data);
+  const handleDirectSave = async (data: CropFormData) => {
+    console.log('[CropAdd] Saving directly to Supabase:', data);
     setErrorMessage(null);
-    setSuccessMessage(null);
+    setSyncStatus('syncing');
+
     if (!farm) {
-      console.error('[CropAdd] Farm not found');
       setErrorMessage('Farm not found. Please login again.');
+      setSyncStatus('error');
       return;
     }
 
@@ -91,86 +91,50 @@ export default function AddCropPage() {
         updatedAt: new Date().toISOString(),
       };
 
-      console.log('[CropAdd] Creating crop:', crop);
+      console.log('[CropAdd] Created crop:', crop);
+      
       // Save to local database
       await db.crops.add(crop);
-      console.log('[CropAdd] Crop added to DB, incrementing counter from', savedCrops, 'to', savedCrops + 1);
+      console.log('[CropAdd] Crop saved to local DB');
 
-      // Reset form and show success (no redirect)
-      reset();
-      setSavedCrops(prev => {
-        console.log('[CropAdd] setSavedCrops called, new count:', prev + 1);
-        return prev + 1;
+      // Immediately sync to Supabase
+      console.log('[CropAdd] Syncing to Supabase...');
+      const response = await fetch('/api/sync/crops', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(crop),
       });
-      setSuccessMessage(`✓ "${data.name}" ready for sync. Click "Save (1)" button (top right) to save to Supabase!`);
-      console.log('[CropAdd] Form reset, success message shown');
-      
-      // Clear success message after 5 seconds
-      setTimeout(() => setSuccessMessage(null), 5000);
-      
-    } catch (error) {
-      console.error('[CropAdd] Error creating crop:', error);
-      const errorMsg = error instanceof Error ? error.message : 'Failed to create crop. Please try again.';
-      setErrorMessage(errorMsg);
-    }
-  };
 
-  const handleSyncToSupabase = async () => {
-    if (!farm) {
-      setErrorMessage('Farm not found. Please login again.');
-      return;
-    }
-
-    setSyncStatus('syncing');
-    setErrorMessage(null);
-
-    try {
-      // Get all pending crops for this farm
-      const pendingCrops = await db.crops
-        .where('farmId')
-        .equals(farm.id)
-        .filter(crop => crop.syncStatus === SyncStatus.PENDING)
-        .toArray();
-
-      if (pendingCrops.length === 0) {
-        setErrorMessage('No pending crops to sync');
-        setSyncStatus('idle');
-        return;
+      if (!response.ok) {
+        throw new Error(`Failed to save to Supabase: ${response.statusText}`);
       }
 
-      // Sync each crop to Supabase
-      for (const crop of pendingCrops) {
-        const response = await fetch('/api/sync/crops', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(crop),
-        });
+      // Update sync status to SYNCED
+      await db.crops.update(crop.id, {
+        syncStatus: SyncStatus.SYNCED,
+        updatedAt: new Date().toISOString(),
+      });
 
-        if (!response.ok) {
-          throw new Error(`Failed to sync crop: ${crop.name}`);
-        }
-
-        // Update sync status locally
-        await db.crops.update(crop.id, {
-          syncStatus: SyncStatus.SYNCED,
-          updatedAt: new Date().toISOString(),
-        });
-      }
-
+      console.log('[CropAdd] Crop successfully saved to Supabase');
+      
       setSyncStatus('success');
-      setSuccessMessage(`✓ Successfully saved ${pendingCrops.length} crop(s) to Supabase!`);
+      setSuccessMessage(`✓ "${data.name}" saved successfully to Supabase!`);
+      
+      // Reset form
+      reset();
+      
+      // Clear success after 3 seconds
       setTimeout(() => {
         setSyncStatus('idle');
         setSuccessMessage(null);
       }, 3000);
     } catch (error) {
-      console.error('Sync error:', error);
+      console.error('[CropAdd] Error:', error);
       setSyncStatus('error');
-      const errorMsg = error instanceof Error ? error.message : 'Failed to sync to Supabase';
+      const errorMsg = error instanceof Error ? error.message : 'Failed to save crop';
       setErrorMessage(errorMsg);
-      setTimeout(() => {
-        setSyncStatus('idle');
-      }, 3000);
+      
+      setTimeout(() => setSyncStatus('idle'), 3000);
     }
   };
 
@@ -191,12 +155,13 @@ export default function AddCropPage() {
             <h1 className="text-2xl font-bold">Plant New Crop</h1>
           </div>
           <button
-            onClick={handleSyncToSupabase}
-            disabled={syncStatus === 'syncing' || savedCrops === 0}
+            type="button"
+            onClick={handleSubmit(handleDirectSave)}
+            disabled={!isValid || syncStatus === 'syncing'}
             className={`flex items-center gap-2 px-4 py-2 rounded-lg font-semibold transition ${
               syncStatus === 'syncing'
                 ? 'bg-white/30 text-white cursor-not-allowed animate-pulse'
-                : savedCrops === 0
+                : !isValid
                 ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
                 : syncStatus === 'success'
                 ? 'bg-green-500 text-white hover:bg-green-600'
@@ -207,7 +172,7 @@ export default function AddCropPage() {
           >
             {syncStatus === 'syncing' ? (
               <>
-                <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                <Loader className="w-5 h-5 animate-spin" />
                 Saving...
               </>
             ) : syncStatus === 'success' ? (
@@ -223,7 +188,7 @@ export default function AddCropPage() {
             ) : (
               <>
                 <Save className="w-5 h-5" />
-                Save ({savedCrops})
+                Save
               </>
             )}
           </button>
@@ -231,7 +196,7 @@ export default function AddCropPage() {
       </header>
 
       <main className="p-4 max-w-2xl mx-auto">
-        <form onSubmit={handleSubmit(onSubmitLocal)} className="card space-y-6">
+        <form className="card space-y-6">
           {errorMessage && (
             <div className="p-4 bg-red-50 border border-red-200 rounded text-red-700">
               {errorMessage}
@@ -241,12 +206,6 @@ export default function AddCropPage() {
           {successMessage && (
             <div className="p-4 bg-green-50 border border-green-200 rounded text-green-700 text-sm">
               {successMessage}
-            </div>
-          )}
-
-          {savedCrops > 0 && (
-            <div className="p-2 bg-blue-50 border border-blue-200 rounded text-blue-700 text-xs font-semibold">
-              Crops ready to sync: {savedCrops} (click "Save" button in top right to save to Supabase)
             </div>
           )}
 
@@ -307,22 +266,14 @@ export default function AddCropPage() {
                 error={errors.status?.message}
               />
 
-              <div className="flex gap-4">
+              <div className="flex gap-4 pt-4">
                 <Button
                   type="button"
                   variant="secondary"
                   onClick={() => router.push('/crops')}
                   className="flex-1"
                 >
-                  Back to Crops
-                </Button>
-                <Button
-                  type="submit"
-                  variant="primary"
-                  disabled={isSubmitting}
-                  className="flex-1"
-                >
-                  {isSubmitting ? 'Adding...' : 'Add Crop'}
+                  Cancel
                 </Button>
               </div>
             </>

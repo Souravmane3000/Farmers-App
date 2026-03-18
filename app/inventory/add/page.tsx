@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -9,12 +9,11 @@ import { v4 as uuidv4 } from 'uuid';
 import { db } from '@/lib/db/database';
 import { InventoryItem, InventoryCategory, Unit, SyncStatus } from '@/types';
 import { useAuth } from '@/contexts/AuthContext';
-import { SyncService } from '@/lib/sync/syncService';
 import BackButton from '@/components/BackButton';
 import Button from '@/components/Button';
 import Input from '@/components/Input';
 import Select from '@/components/Select';
-import { Save, CheckCircle, AlertCircle } from 'lucide-react';
+import { Save, CheckCircle, AlertCircle, Loader } from 'lucide-react';
 
 const itemSchema = z.object({
   name: z.string().min(1, 'Item name is required'),
@@ -35,27 +34,26 @@ export default function AddInventoryPage() {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [syncStatus, setSyncStatus] = useState<'idle' | 'syncing' | 'success' | 'error'>('idle');
-  const [savedItems, setSavedItems] = useState<number>(0);
-  const [lastSavedItem, setLastSavedItem] = useState<InventoryItem | null>(null);
 
   const {
     register,
     handleSubmit,
     reset,
-    getValues,
-    formState: { errors, isSubmitting },
+    formState: { errors, isSubmitting, isValid },
+    watch,
   } = useForm<ItemFormData>({
     resolver: zodResolver(itemSchema),
     mode: 'onChange',
   });
 
-  const onSubmitLocal = async (data: ItemFormData) => {
-    console.log('[InventoryAdd] Form submitted with data:', data);
+  const handleDirectSave = async (data: ItemFormData) => {
+    console.log('[InventoryAdd] Saving directly to Supabase:', data);
     setErrorMessage(null);
-    setSuccessMessage(null);
+    setSyncStatus('syncing');
+
     if (!farm) {
-      console.error('[InventoryAdd] Farm not found');
       setErrorMessage('Farm not found. Please login again.');
+      setSyncStatus('error');
       return;
     }
 
@@ -75,84 +73,50 @@ export default function AddInventoryPage() {
         updatedAt: new Date().toISOString(),
       };
 
-      console.log('[InventoryAdd] Creating item:', item);
+      console.log('[InventoryAdd] Created item:', item);
+      
       // Save to local database
       await db.inventoryItems.add(item);
-      console.log('[InventoryAdd] Item added to DB, incrementing counter from', savedItems, 'to', savedItems + 1);
-      setLastSavedItem(item);
-      setSavedItems(prev => {
-        console.log('[InventoryAdd] setSavedItems called, new count:', prev + 1);
-        return prev + 1;
+      console.log('[InventoryAdd] Item saved to local DB');
+
+      // Immediately sync to Supabase
+      console.log('[InventoryAdd] Syncing to Supabase...');
+      const response = await fetch('/api/sync/inventoryItems', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(item),
       });
+
+      if (!response.ok) {
+        throw new Error(`Failed to save to Supabase: ${response.statusText}`);
+      }
+
+      // Update sync status to SYNCED
+      await db.inventoryItems.update(item.id, {
+        syncStatus: SyncStatus.SYNCED,
+        updatedAt: new Date().toISOString(),
+      });
+
+      console.log('[InventoryAdd] Item successfully saved to Supabase');
       
-      // Reset form and show success
-      reset();
-      setSuccessMessage(`✓ "${data.name}" ready for sync. Click "Save (1)" button (top right) to save to Supabase!`);
-      console.log('[InventoryAdd] Form reset, success message shown');
-      setTimeout(() => setSuccessMessage(null), 5000);
-    } catch (error) {
-      console.error('[InventoryAdd] Error creating item:', error);
-      const errorMsg = error instanceof Error ? error.message : 'Failed to create item. Please try again.';
-      setErrorMessage(errorMsg);
-    }
-  };
-
-  const handleSyncToSupabase = async () => {
-    if (!farm) {
-      setErrorMessage('Farm not found. Please login again.');
-      return;
-    }
-
-    setSyncStatus('syncing');
-    setErrorMessage(null);
-
-    try {
-      // Get all pending items for this farm
-      const pendingItems = await db.inventoryItems
-        .where('farmId')
-        .equals(farm.id)
-        .filter(item => item.syncStatus === SyncStatus.PENDING)
-        .toArray();
-
-      if (pendingItems.length === 0) {
-        setErrorMessage('No pending items to sync');
-        setSyncStatus('idle');
-        return;
-      }
-
-      // Sync each item to Supabase
-      for (const item of pendingItems) {
-        const response = await fetch('/api/sync/inventoryItems', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(item),
-        });
-
-        if (!response.ok) {
-          throw new Error(`Failed to sync item: ${item.name}`);
-        }
-
-        // Update sync status locally
-        await db.inventoryItems.update(item.id, {
-          syncStatus: SyncStatus.SYNCED,
-          updatedAt: new Date().toISOString(),
-        });
-      }
-
       setSyncStatus('success');
-      setSuccessMessage(`✓ Successfully saved ${pendingItems.length} item(s) to Supabase!`);
+      setSuccessMessage(`✓ "${data.name}" saved successfully to Supabase!`);
+      
+      // Reset form
+      reset();
+      
+      // Clear success after 3 seconds
       setTimeout(() => {
         setSyncStatus('idle');
         setSuccessMessage(null);
       }, 3000);
     } catch (error) {
-      console.error('Sync error:', error);
+      console.error('[InventoryAdd] Error:', error);
       setSyncStatus('error');
-      const errorMsg = error instanceof Error ? error.message : 'Failed to sync to Supabase';
+      const errorMsg = error instanceof Error ? error.message : 'Failed to save item';
       setErrorMessage(errorMsg);
-      setTimeout(() => {
-        setSyncStatus('idle');
-      }, 3000);
+      
+      setTimeout(() => setSyncStatus('idle'), 3000);
     }
   };
 
@@ -165,12 +129,13 @@ export default function AddInventoryPage() {
             <h1 className="text-2xl font-bold">Add Item</h1>
           </div>
           <button
-            onClick={handleSyncToSupabase}
-            disabled={syncStatus === 'syncing' || savedItems === 0}
+            type="button"
+            onClick={handleSubmit(handleDirectSave)}
+            disabled={!isValid || syncStatus === 'syncing'}
             className={`flex items-center gap-2 px-4 py-2 rounded-lg font-semibold transition ${
               syncStatus === 'syncing'
                 ? 'bg-white/30 text-white cursor-not-allowed animate-pulse'
-                : savedItems === 0
+                : !isValid
                 ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
                 : syncStatus === 'success'
                 ? 'bg-green-500 text-white hover:bg-green-600'
@@ -181,7 +146,7 @@ export default function AddInventoryPage() {
           >
             {syncStatus === 'syncing' ? (
               <>
-                <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                <Loader className="w-5 h-5 animate-spin" />
                 Saving...
               </>
             ) : syncStatus === 'success' ? (
@@ -197,7 +162,7 @@ export default function AddInventoryPage() {
             ) : (
               <>
                 <Save className="w-5 h-5" />
-                Save ({savedItems})
+                Save
               </>
             )}
           </button>
@@ -205,7 +170,7 @@ export default function AddInventoryPage() {
       </header>
 
       <main className="p-4 max-w-2xl mx-auto">
-        <form onSubmit={handleSubmit(onSubmitLocal)} className="card space-y-4">
+        <form className="card space-y-4">
           {errorMessage && (
             <div className="p-3 bg-red-50 border border-red-200 rounded text-red-700 text-sm">
               {errorMessage}
@@ -215,12 +180,6 @@ export default function AddInventoryPage() {
           {successMessage && (
             <div className="p-3 bg-green-50 border border-green-200 rounded text-green-700 text-sm">
               {successMessage}
-            </div>
-          )}
-
-          {savedItems > 0 && (
-            <div className="p-2 bg-blue-50 border border-blue-200 rounded text-blue-700 text-xs font-semibold">
-              Items ready to sync: {savedItems} (click "Save" button in top right to save to Supabase)
             </div>
           )}
 
@@ -274,22 +233,14 @@ export default function AddInventoryPage() {
             />
           </div>
 
-          <div className="flex gap-3 pt-2">
+          <div className="flex gap-3 pt-4">
             <Button
               type="button"
               variant="secondary"
               onClick={() => router.push('/inventory')}
               className="flex-1 text-sm"
             >
-              Back to Inventory
-            </Button>
-            <Button
-              type="submit"
-              variant="primary"
-              disabled={isSubmitting}
-              className="flex-1 text-sm"
-            >
-              {isSubmitting ? 'Adding...' : 'Add Item'}
+              Cancel
             </Button>
           </div>
         </form>
