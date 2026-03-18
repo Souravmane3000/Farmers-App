@@ -32,11 +32,14 @@ export default function AddCropPage() {
   const { farm } = useAuth();
   const [plots, setPlots] = useState<Plot[]>([]);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const [savedCrops, setSavedCrops] = useState<number>(0);
   const [loadingPlots, setLoadingPlots] = useState(true);
 
   const {
     register,
     handleSubmit,
+    reset,
     formState: { errors, isSubmitting },
   } = useForm<CropFormData>({
     resolver: zodResolver(cropSchema),
@@ -64,6 +67,7 @@ export default function AddCropPage() {
 
   const onSubmit = async (data: CropFormData) => {
     setErrorMessage(null);
+    setSuccessMessage(null);
     if (!farm) {
       setErrorMessage('Farm not found. Please login again.');
       return;
@@ -90,8 +94,13 @@ export default function AddCropPage() {
       // Mark for sync with Supabase
       await syncService.markForSync(farm.id, 'crops', crop.id, 'create', crop);
 
-      // Success - redirect to crops list
-      router.push('/crops');
+      // Reset form and show success (no redirect)
+      reset();
+      setSavedCrops(savedCrops + 1);
+      setSuccessMessage(`✓ "${data.name}" planted successfully! Add another crop or go back to sync to Supabase.`);
+      
+      // Clear success message after 4 seconds
+      setTimeout(() => setSuccessMessage(null), 4000);
       
     } catch (error) {
       console.error('Error creating crop:', error);
@@ -122,6 +131,18 @@ export default function AddCropPage() {
           {errorMessage && (
             <div className="p-4 bg-red-50 border border-red-200 rounded text-red-700">
               {errorMessage}
+            </div>
+          )}
+
+          {successMessage && (
+            <div className="p-4 bg-green-50 border border-green-200 rounded text-green-700 text-sm">
+              {successMessage}
+            </div>
+          )}
+
+          {savedCrops > 0 && (
+            <div className="p-2 bg-blue-50 border border-blue-200 rounded text-blue-700 text-xs font-semibold">
+              Crops saved locally: {savedCrops} (pending sync)
             </div>
           )}
 
@@ -186,10 +207,10 @@ export default function AddCropPage() {
                 <Button
                   type="button"
                   variant="secondary"
-                  onClick={() => router.back()}
+                  onClick={() => router.push('/crops')}
                   className="flex-1"
                 >
-                  Cancel
+                  Back to Crops
                 </Button>
                 <Button
                   type="submit"

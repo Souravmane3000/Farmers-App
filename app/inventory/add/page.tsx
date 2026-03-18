@@ -32,10 +32,13 @@ export default function AddInventoryPage() {
   const router = useRouter();
   const { farm } = useAuth();
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const [savedItems, setSavedItems] = useState<number>(0);
 
   const {
     register,
     handleSubmit,
+    reset,
     formState: { errors, isSubmitting },
   } = useForm<ItemFormData>({
     resolver: zodResolver(itemSchema),
@@ -44,6 +47,7 @@ export default function AddInventoryPage() {
 
   const onSubmit = async (data: ItemFormData) => {
     setErrorMessage(null);
+    setSuccessMessage(null);
     if (!farm) {
       setErrorMessage('Farm not found. Please login again.');
       return;
@@ -68,7 +72,13 @@ export default function AddInventoryPage() {
       await db.inventoryItems.add(item);
       await syncService.markForSync(farm.id, 'inventoryItems', item.id, 'create', item);
 
-      router.push('/inventory');
+      // Reset form and show success
+      reset();
+      setSavedItems(savedItems + 1);
+      setSuccessMessage(`✓ "${data.name}" saved successfully! Add another item or use the Save button on Inventory to sync to Supabase.`);
+      
+      // Clear success message after 4 seconds
+      setTimeout(() => setSuccessMessage(null), 4000);
     } catch (error) {
       console.error('Error creating item:', error);
       const errorMsg = error instanceof Error ? error.message : 'Failed to create item. Please try again.';
@@ -90,6 +100,18 @@ export default function AddInventoryPage() {
           {errorMessage && (
             <div className="p-3 bg-red-50 border border-red-200 rounded text-red-700 text-sm">
               {errorMessage}
+            </div>
+          )}
+
+          {successMessage && (
+            <div className="p-3 bg-green-50 border border-green-200 rounded text-green-700 text-sm">
+              {successMessage}
+            </div>
+          )}
+
+          {savedItems > 0 && (
+            <div className="p-2 bg-blue-50 border border-blue-200 rounded text-blue-700 text-xs font-semibold">
+              Items saved locally: {savedItems} (pending sync)
             </div>
           )}
 
@@ -147,10 +169,10 @@ export default function AddInventoryPage() {
             <Button
               type="button"
               variant="secondary"
-              onClick={() => router.back()}
+              onClick={() => router.push('/inventory')}
               className="flex-1 text-sm"
             >
-              Cancel
+              Back to Inventory
             </Button>
             <Button
               type="submit"
