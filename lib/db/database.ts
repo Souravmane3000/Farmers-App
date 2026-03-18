@@ -103,17 +103,3 @@ export const dbHelpers = {
     });
   },
 };
-      .filter(n => !n.isRead)
-      .toArray();
-  },
-
-  async getRecentWeatherLog(farmId: string) {
-    const logs = await db.weatherLogs
-      .where('farmId')
-      .equals(farmId)
-      .reverse()
-      .limit(1)
-      .toArray();
-    return logs[0] || null;
-  },
-};
