@@ -67,9 +67,11 @@ export default function AddCropPage() {
   };
 
   const onSubmitLocal = async (data: CropFormData) => {
+    console.log('[CropAdd] Form submitted with data:', data);
     setErrorMessage(null);
     setSuccessMessage(null);
     if (!farm) {
+      console.error('[CropAdd] Farm not found');
       setErrorMessage('Farm not found. Please login again.');
       return;
     }
@@ -89,19 +91,25 @@ export default function AddCropPage() {
         updatedAt: new Date().toISOString(),
       };
 
+      console.log('[CropAdd] Creating crop:', crop);
       // Save to local database
       await db.crops.add(crop);
+      console.log('[CropAdd] Crop added to DB, incrementing counter from', savedCrops, 'to', savedCrops + 1);
 
       // Reset form and show success (no redirect)
       reset();
-      setSavedCrops(savedCrops + 1);
-      setSuccessMessage(`✓ "${data.name}" ready for sync. Click "Save" button (top right) to save it to Supabase!`);
+      setSavedCrops(prev => {
+        console.log('[CropAdd] setSavedCrops called, new count:', prev + 1);
+        return prev + 1;
+      });
+      setSuccessMessage(`✓ "${data.name}" ready for sync. Click "Save (1)" button (top right) to save to Supabase!`);
+      console.log('[CropAdd] Form reset, success message shown');
       
       // Clear success message after 5 seconds
       setTimeout(() => setSuccessMessage(null), 5000);
       
     } catch (error) {
-      console.error('Error creating crop:', error);
+      console.error('[CropAdd] Error creating crop:', error);
       const errorMsg = error instanceof Error ? error.message : 'Failed to create crop. Please try again.';
       setErrorMessage(errorMsg);
     }

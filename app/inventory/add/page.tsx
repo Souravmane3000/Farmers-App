@@ -50,9 +50,11 @@ export default function AddInventoryPage() {
   });
 
   const onSubmitLocal = async (data: ItemFormData) => {
+    console.log('[InventoryAdd] Form submitted with data:', data);
     setErrorMessage(null);
     setSuccessMessage(null);
     if (!farm) {
+      console.error('[InventoryAdd] Farm not found');
       setErrorMessage('Farm not found. Please login again.');
       return;
     }
@@ -73,17 +75,23 @@ export default function AddInventoryPage() {
         updatedAt: new Date().toISOString(),
       };
 
+      console.log('[InventoryAdd] Creating item:', item);
       // Save to local database
       await db.inventoryItems.add(item);
+      console.log('[InventoryAdd] Item added to DB, incrementing counter from', savedItems, 'to', savedItems + 1);
       setLastSavedItem(item);
-      setSavedItems(savedItems + 1);
+      setSavedItems(prev => {
+        console.log('[InventoryAdd] setSavedItems called, new count:', prev + 1);
+        return prev + 1;
+      });
       
       // Reset form and show success
       reset();
-      setSuccessMessage(`✓ "${data.name}" ready for sync. Click "Save to Supabase" button (top right) to save it!`);
+      setSuccessMessage(`✓ "${data.name}" ready for sync. Click "Save (1)" button (top right) to save to Supabase!`);
+      console.log('[InventoryAdd] Form reset, success message shown');
       setTimeout(() => setSuccessMessage(null), 5000);
     } catch (error) {
-      console.error('Error creating item:', error);
+      console.error('[InventoryAdd] Error creating item:', error);
       const errorMsg = error instanceof Error ? error.message : 'Failed to create item. Please try again.';
       setErrorMessage(errorMsg);
     }
