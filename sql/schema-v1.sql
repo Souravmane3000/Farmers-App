@@ -1,16 +1,14 @@
--- DEPRECATED: This file is now replaced by sql/schema-v1.sql
--- 
--- IMPORTANT: Do not use this file for new schema work!
--- 
--- Instead, use:
---   - sql/schema-v1.sql          — Authoritative schema (source of truth)
---   - sql/migrations/001-*.sql   — Migration files
---   - sql/README.md              — Setup and verification instructions
--- 
--- Local IndexedDB schema is in lib/db/database.ts
+-- Farm Management App - Authoritative PostgreSQL Database Schema (v1.0)
+-- This is the source of truth for database structure
+-- Created: March 2026
+-- Source: Extracted from TypeScript types with proper field mapping
+
+-- ============================================
+-- CORE TABLES (Required for MVP)
+-- ============================================
 
 -- Users Table
-CREATE TABLE users (
+CREATE TABLE IF NOT EXISTS users (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     email VARCHAR(255) UNIQUE NOT NULL,
     name VARCHAR(255) NOT NULL,
@@ -21,7 +19,7 @@ CREATE TABLE users (
 );
 
 -- Farms Table (One per user)
-CREATE TABLE farms (
+CREATE TABLE IF NOT EXISTS farms (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     name VARCHAR(255) NOT NULL,
@@ -32,7 +30,7 @@ CREATE TABLE farms (
 );
 
 -- Plots Table
-CREATE TABLE plots (
+CREATE TABLE IF NOT EXISTS plots (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     farm_id UUID NOT NULL REFERENCES farms(id) ON DELETE CASCADE,
     name VARCHAR(255) NOT NULL,
@@ -45,7 +43,7 @@ CREATE TABLE plots (
 );
 
 -- Crops Table
-CREATE TABLE crops (
+CREATE TABLE IF NOT EXISTS crops (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     farm_id UUID NOT NULL REFERENCES farms(id) ON DELETE CASCADE,
     plot_id UUID NOT NULL REFERENCES plots(id) ON DELETE CASCADE,
@@ -63,7 +61,7 @@ CREATE TABLE crops (
 );
 
 -- Suppliers Table
-CREATE TABLE suppliers (
+CREATE TABLE IF NOT EXISTS suppliers (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     farm_id UUID NOT NULL REFERENCES farms(id) ON DELETE CASCADE,
     name VARCHAR(255) NOT NULL,
@@ -71,12 +69,13 @@ CREATE TABLE suppliers (
     email VARCHAR(255),
     address TEXT,
     rating INTEGER CHECK (rating >= 0 AND rating <= 5),
+    sync_status VARCHAR(50) DEFAULT 'pending',
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
 -- Inventory Items Table
-CREATE TABLE inventory_items (
+CREATE TABLE IF NOT EXISTS inventory_items (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     farm_id UUID NOT NULL REFERENCES farms(id) ON DELETE CASCADE,
     name VARCHAR(255) NOT NULL,
@@ -90,7 +89,7 @@ CREATE TABLE inventory_items (
 );
 
 -- Stock Logs Table
-CREATE TABLE stock_logs (
+CREATE TABLE IF NOT EXISTS stock_logs (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     farm_id UUID NOT NULL REFERENCES farms(id) ON DELETE CASCADE,
     item_id UUID NOT NULL REFERENCES inventory_items(id) ON DELETE CASCADE,
@@ -107,8 +106,8 @@ CREATE TABLE stock_logs (
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- Field Usage Logs Table (Core Feature)
-CREATE TABLE field_usage_logs (
+-- Field Usage Logs Table (Core Feature - Pesticide/Fertilizer tracking)
+CREATE TABLE IF NOT EXISTS field_usage_logs (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     farm_id UUID NOT NULL REFERENCES farms(id) ON DELETE CASCADE,
     plot_id UUID NOT NULL REFERENCES plots(id) ON DELETE CASCADE,
@@ -122,12 +121,13 @@ CREATE TABLE field_usage_logs (
     weather_condition VARCHAR(100),
     temperature DECIMAL(5, 2),
     notes TEXT,
+    sync_status VARCHAR(50) DEFAULT 'pending',
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
 -- Expenses Table
-CREATE TABLE expenses (
+CREATE TABLE IF NOT EXISTS expenses (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     farm_id UUID NOT NULL REFERENCES farms(id) ON DELETE CASCADE,
     item_id UUID REFERENCES inventory_items(id),
@@ -137,12 +137,13 @@ CREATE TABLE expenses (
     supplier_id UUID REFERENCES suppliers(id),
     description TEXT NOT NULL,
     receipt_photo_url TEXT,
+    sync_status VARCHAR(50) DEFAULT 'pending',
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
 -- Alerts Table
-CREATE TABLE alerts (
+CREATE TABLE IF NOT EXISTS alerts (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     farm_id UUID NOT NULL REFERENCES farms(id) ON DELETE CASCADE,
     type VARCHAR(50) NOT NULL,
@@ -154,8 +155,8 @@ CREATE TABLE alerts (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- Sync Queue Table (for conflict resolution)
-CREATE TABLE sync_queue (
+-- Sync Queue Table (for offline-first conflict resolution)
+CREATE TABLE IF NOT EXISTS sync_queue (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     farm_id UUID NOT NULL REFERENCES farms(id) ON DELETE CASCADE,
     table_name VARCHAR(100) NOT NULL,
@@ -168,27 +169,45 @@ CREATE TABLE sync_queue (
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- Indexes for Performance
-CREATE INDEX idx_plots_farm_id ON plots(farm_id);
-CREATE INDEX idx_crops_farm_id ON crops(farm_id);
-CREATE INDEX idx_crops_plot_id ON crops(plot_id);
-CREATE INDEX idx_inventory_items_farm_id ON inventory_items(farm_id);
-CREATE INDEX idx_stock_logs_farm_id ON stock_logs(farm_id);
-CREATE INDEX idx_stock_logs_item_id ON stock_logs(item_id);
-CREATE INDEX idx_stock_logs_date ON stock_logs(date);
-CREATE INDEX idx_field_usage_logs_farm_id ON field_usage_logs(farm_id);
-CREATE INDEX idx_field_usage_logs_plot_id ON field_usage_logs(plot_id);
-CREATE INDEX idx_field_usage_logs_crop_id ON field_usage_logs(crop_id);
-CREATE INDEX idx_field_usage_logs_item_id ON field_usage_logs(item_id);
-CREATE INDEX idx_field_usage_logs_usage_date ON field_usage_logs(usage_date);
-CREATE INDEX idx_expenses_farm_id ON expenses(farm_id);
-CREATE INDEX idx_expenses_date ON expenses(date);
-CREATE INDEX idx_alerts_farm_id ON alerts(farm_id);
-CREATE INDEX idx_alerts_is_read ON alerts(is_read);
-CREATE INDEX idx_sync_queue_farm_id ON sync_queue(farm_id);
-CREATE INDEX idx_sync_queue_table_name ON sync_queue(table_name);
+-- ============================================
+-- INDEXES FOR PERFORMANCE
+-- ============================================
 
--- Function to update updated_at timestamp
+CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
+CREATE INDEX IF NOT EXISTS idx_farms_user_id ON farms(user_id);
+CREATE INDEX IF NOT EXISTS idx_plots_farm_id ON plots(farm_id);
+CREATE INDEX IF NOT EXISTS idx_plots_sync_status ON plots(sync_status);
+CREATE INDEX IF NOT EXISTS idx_crops_farm_id ON crops(farm_id);
+CREATE INDEX IF NOT EXISTS idx_crops_plot_id ON crops(plot_id);
+CREATE INDEX IF NOT EXISTS idx_crops_sync_status ON crops(sync_status);
+CREATE INDEX IF NOT EXISTS idx_suppliers_farm_id ON suppliers(farm_id);
+CREATE INDEX IF NOT EXISTS idx_inventory_items_farm_id ON inventory_items(farm_id);
+CREATE INDEX IF NOT EXISTS idx_inventory_items_sync_status ON inventory_items(sync_status);
+CREATE INDEX IF NOT EXISTS idx_inventory_items_category ON inventory_items(category);
+CREATE INDEX IF NOT EXISTS idx_stock_logs_farm_id ON stock_logs(farm_id);
+CREATE INDEX IF NOT EXISTS idx_stock_logs_item_id ON stock_logs(item_id);
+CREATE INDEX IF NOT EXISTS idx_stock_logs_date ON stock_logs(date);
+CREATE INDEX IF NOT EXISTS idx_stock_logs_sync_status ON stock_logs(sync_status);
+CREATE INDEX IF NOT EXISTS idx_field_usage_logs_farm_id ON field_usage_logs(farm_id);
+CREATE INDEX IF NOT EXISTS idx_field_usage_logs_plot_id ON field_usage_logs(plot_id);
+CREATE INDEX IF NOT EXISTS idx_field_usage_logs_crop_id ON field_usage_logs(crop_id);
+CREATE INDEX IF NOT EXISTS idx_field_usage_logs_item_id ON field_usage_logs(item_id);
+CREATE INDEX IF NOT EXISTS idx_field_usage_logs_usage_date ON field_usage_logs(usage_date);
+CREATE INDEX IF NOT EXISTS idx_field_usage_logs_sync_status ON field_usage_logs(sync_status);
+CREATE INDEX IF NOT EXISTS idx_expenses_farm_id ON expenses(farm_id);
+CREATE INDEX IF NOT EXISTS idx_expenses_date ON expenses(date);
+CREATE INDEX IF NOT EXISTS idx_expenses_sync_status ON expenses(sync_status);
+CREATE INDEX IF NOT EXISTS idx_alerts_farm_id ON alerts(farm_id);
+CREATE INDEX IF NOT EXISTS idx_alerts_is_read ON alerts(is_read);
+CREATE INDEX IF NOT EXISTS idx_alerts_created_at ON alerts(created_at);
+CREATE INDEX IF NOT EXISTS idx_sync_queue_farm_id ON sync_queue(farm_id);
+CREATE INDEX IF NOT EXISTS idx_sync_queue_table_name ON sync_queue(table_name);
+CREATE INDEX IF NOT EXISTS idx_sync_queue_created_at ON sync_queue(created_at);
+
+-- ============================================
+-- AUTOMATIC TIMESTAMP UPDATES
+-- ============================================
+
 CREATE OR REPLACE FUNCTION update_updated_at_column()
 RETURNS TRIGGER AS $$
 BEGIN
@@ -197,38 +216,42 @@ BEGIN
 END;
 $$ language 'plpgsql';
 
--- Triggers for updated_at
-CREATE TRIGGER update_users_updated_at BEFORE UPDATE ON users
+-- Apply updated_at trigger to all tables with timestamps
+CREATE TRIGGER IF NOT EXISTS update_users_updated_at BEFORE UPDATE ON users
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
-CREATE TRIGGER update_farms_updated_at BEFORE UPDATE ON farms
+CREATE TRIGGER IF NOT EXISTS update_farms_updated_at BEFORE UPDATE ON farms
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
-CREATE TRIGGER update_plots_updated_at BEFORE UPDATE ON plots
+CREATE TRIGGER IF NOT EXISTS update_plots_updated_at BEFORE UPDATE ON plots
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
-CREATE TRIGGER update_crops_updated_at BEFORE UPDATE ON crops
+CREATE TRIGGER IF NOT EXISTS update_crops_updated_at BEFORE UPDATE ON crops
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
-CREATE TRIGGER update_inventory_items_updated_at BEFORE UPDATE ON inventory_items
+CREATE TRIGGER IF NOT EXISTS update_suppliers_updated_at BEFORE UPDATE ON suppliers
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
-CREATE TRIGGER update_stock_logs_updated_at BEFORE UPDATE ON stock_logs
+CREATE TRIGGER IF NOT EXISTS update_inventory_items_updated_at BEFORE UPDATE ON inventory_items
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
-CREATE TRIGGER update_field_usage_logs_updated_at BEFORE UPDATE ON field_usage_logs
+CREATE TRIGGER IF NOT EXISTS update_stock_logs_updated_at BEFORE UPDATE ON stock_logs
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
-CREATE TRIGGER update_expenses_updated_at BEFORE UPDATE ON expenses
+CREATE TRIGGER IF NOT EXISTS update_field_usage_logs_updated_at BEFORE UPDATE ON field_usage_logs
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
-CREATE TRIGGER update_suppliers_updated_at BEFORE UPDATE ON suppliers
+CREATE TRIGGER IF NOT EXISTS update_expenses_updated_at BEFORE UPDATE ON expenses
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
-CREATE TRIGGER update_sync_queue_updated_at BEFORE UPDATE ON sync_queue
+CREATE TRIGGER IF NOT EXISTS update_sync_queue_updated_at BEFORE UPDATE ON sync_queue
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
--- View: Current Stock (computed)
+-- ============================================
+-- HELPER VIEWS
+-- ============================================
+
+-- Current Stock View (calculated from stock_logs)
 CREATE OR REPLACE VIEW current_stock AS
 SELECT 
     i.id as item_id,
@@ -249,26 +272,55 @@ SELECT
         ELSE FALSE
     END as is_low_stock
 FROM inventory_items i
-LEFT JOIN stock_logs sl ON i.id = sl.item_id
+LEFT JOIN stock_logs sl ON i.id = sl.item_id AND i.farm_id = sl.farm_id
 GROUP BY i.id, i.farm_id, i.name, i.category, i.unit, i.min_threshold;
 
+-- Pending Syncs View (for offline-first sync status)
+CREATE OR REPLACE VIEW pending_syncs AS
+SELECT 
+    sq.id,
+    sq.farm_id,
+    sq.table_name,
+    sq.operation,
+    sq.retry_count,
+    sq.created_at,
+    COUNT(*) OVER (PARTITION BY sq.farm_id) as pending_count
+FROM sync_queue sq
+ORDER BY sq.created_at DESC;
+
 -- ============================================
--- EXTENDED SCHEMA - Reserved for Phase 2+
+-- SCHEMA VERSION TRACKING
 -- ============================================
--- Workers, Equipment, Weather, Irrigation, Harvests, 
--- Crop Rotations, Tasks, Activity Logs, Notifications,
--- Farm Contacts, Soil Tests - to be implemented in Phase 2
--- when MVP is stable and performance-tested.
 
--- Additional indexes reserved for Phase 2+
+CREATE TABLE IF NOT EXISTS schema_versions (
+    id SERIAL PRIMARY KEY,
+    version VARCHAR(20) NOT NULL UNIQUE,
+    description TEXT,
+    applied_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
 
--- Additional triggers reserved for Phase 2+
+-- Record this schema version
+INSERT INTO schema_versions (version, description) 
+VALUES ('1.0', 'Initial schema with 11 core tables, sync tracking, and full audit fields')
+ON CONFLICT (version) DO NOTHING;
 
--- Additional views reserved for Phase 2+
-
--- Phase 2 Views (to be implemented):
--- - labor_costs_by_plot (for worker productivity)
--- - maintenance_due (for equipment tracking)
--- - harvest_revenue_by_crop (for harvest analytics)
--- - task_summary (for task management)
--- - worker_productivity (for labor tracking)
+-- ============================================
+-- NOTES
+-- ============================================
+-- 
+-- Field Naming Convention:
+-- - All table/column names use snake_case (PostgreSQL convention)
+-- - JavaScript/TypeScript uses camelCase
+-- - API endpoint converts camelCase → snake_case before saving to database
+-- 
+-- Example mapping:
+--   JavaScript: { farmId: "uuid-123", minThreshold: 10 }
+--   SQL Query:  INSERT INTO inventory_items (farm_id, min_threshold) VALUES ('uuid-123', 10)
+-- 
+-- Sync Status Values:
+--   'pending' - Data saved locally, waiting for Supabase sync
+--   'synced'  - Data successfully persisted to cloud
+--   'conflict' - Two versions exist (last-write-wins resolution)
+-- 
+-- This schema is versioned. To track migrations, see sql/migrations/
+--
