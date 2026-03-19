@@ -32,19 +32,54 @@ export async function POST(
     const { table } = params;
     const supabaseTable = tableNameMap[table] || table;
 
+    console.log(`[API] /api/sync/${table} - Syncing to Supabase table: ${supabaseTable}`);
+    console.log(`[API] Data:`, body);
+
+    // Check if Supabase is configured
+    if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
+      console.error('[API] ❌ Supabase credentials not configured!');
+      return NextResponse.json(
+        { 
+          success: false, 
+          error: 'Supabase credentials not configured. Please check NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY in .env.local'
+        },
+        { status: 500 }
+      );
+    }
+
     // Upsert record to Supabase
     const { data, error } = await supabase
       .from(supabaseTable)
       .upsert([body], { onConflict: 'id' });
 
     if (error) {
-      console.error(`Supabase error for ${supabaseTable}:`, error);
+      console.error(`[API] ❌ Supabase error for ${supabaseTable}:`, error);
+      console.error('[API] Error code:', error.code);
+      console.error('[API] Error details:', JSON.stringify(error, null, 2));
+      
+      // Provide more detailed error messages
+      let errorMessage = error.message;
+      if (error.code === 'PGRST116') {
+        errorMessage = `Table "${supabaseTable}" not found in Supabase. Please create it first.`;
+      } else if (error.message?.includes('relation')) {
+        errorMessage = `Table "${supabaseTable}" doesn't exist. Make sure all Supabase tables are created.`;
+      }
+      
       return NextResponse.json(
-        { success: false, error: error.message },
+        { 
+          success: false, 
+          error: errorMessage,
+          details: {
+            code: error.code,
+            table: supabaseTable,
+            message: error.message
+          }
+        },
         { status: 400 }
       );
     }
 
+    console.log(`[API] ✅ Successfully synced to ${supabaseTable}`);
     return NextResponse.json({
       success: true,
       message: `Synced ${table} record`,

@@ -87,8 +87,13 @@ export default function AddInventoryPage() {
         body: JSON.stringify(item),
       });
 
+      console.log('[InventoryAdd] Sync response status:', response.status);
+      const responseData = await response.json();
+      console.log('[InventoryAdd] Sync response:', responseData);
+
       if (!response.ok) {
-        throw new Error(`Failed to save to Supabase: ${response.statusText}`);
+        const errorMsg = responseData.error || responseData.details || response.statusText;
+        throw new Error(errorMsg);
       }
 
       // Update sync status to SYNCED
@@ -113,7 +118,16 @@ export default function AddInventoryPage() {
     } catch (error) {
       console.error('[InventoryAdd] Error:', error);
       setSyncStatus('error');
-      const errorMsg = error instanceof Error ? error.message : 'Failed to save item';
+      
+      let errorMsg = error instanceof Error ? error.message : 'Failed to save item';
+      
+      // Check if it's a Supabase configuration issue
+      if (errorMsg.includes('credentials') || errorMsg.includes('not configured')) {
+        errorMsg = '⚠️ Supabase not configured. Check SUPABASE_SETUP.md for setup instructions.';
+      } else if (errorMsg.includes('not found') || errorMsg.includes("doesn't exist")) {
+        errorMsg = `⚠️ ${errorMsg} Please create the tables in Supabase first. See SUPABASE_SETUP.md`;
+      }
+      
       setErrorMessage(errorMsg);
       
       setTimeout(() => setSyncStatus('idle'), 3000);
@@ -121,8 +135,8 @@ export default function AddInventoryPage() {
   };
 
   return (
-    <div className="min-h-screen pb-20 bg-gray-50">
-      <header className="bg-primary-600 text-white p-4 shadow-lg">
+    <div className="min-h-screen bg-gray-50">
+      <header className="bg-primary-600 text-white p-4 shadow-lg sticky top-0 z-10">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-4">
             <BackButton href="/inventory" />
@@ -169,11 +183,12 @@ export default function AddInventoryPage() {
         </div>
       </header>
 
-      <main className="p-4 max-w-2xl mx-auto">
-        <form className="card space-y-4">
+      <main className="p-3 pb-40 max-w-2xl mx-auto">
+        <form className="card space-y-3">
           {errorMessage && (
             <div className="p-3 bg-red-50 border border-red-200 rounded text-red-700 text-sm">
-              {errorMessage}
+              <div className="font-semibold mb-1">❌ Error saving to Supabase:</div>
+              <div className="break-words">{errorMessage}</div>
             </div>
           )}
 
