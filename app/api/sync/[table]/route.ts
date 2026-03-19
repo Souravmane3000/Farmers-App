@@ -23,6 +23,19 @@ const tableNameMap: Record<string, string> = {
   tasks: 'tasks',
 };
 
+// Convert camelCase field names to snake_case for Supabase
+function convertToSnakeCase(obj: any): any {
+  const converted: any = {};
+  for (const key in obj) {
+    if (obj.hasOwnProperty(key)) {
+      // Convert camelCase to snake_case
+      const snakeKey = key.replace(/[A-Z]/g, (letter) => `_${letter.toLowerCase()}`);
+      converted[snakeKey] = obj[key];
+    }
+  }
+  return converted;
+}
+
 export async function POST(
   request: NextRequest,
   { params }: { params: { table: string } }
@@ -33,7 +46,7 @@ export async function POST(
     const supabaseTable = tableNameMap[table] || table;
 
     console.log(`[API] /api/sync/${table} - Syncing to Supabase table: ${supabaseTable}`);
-    console.log(`[API] Data:`, body);
+    console.log(`[API] Original data:`, body);
 
     // Check if Supabase is configured
     if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
@@ -47,10 +60,14 @@ export async function POST(
       );
     }
 
+    // Convert field names from camelCase to snake_case for Supabase
+    const convertedData = convertToSnakeCase(body);
+    console.log(`[API] Converted data:`, convertedData);
+
     // Upsert record to Supabase
     const { data, error } = await supabase
       .from(supabaseTable)
-      .upsert([body], { onConflict: 'id' });
+      .upsert([convertedData], { onConflict: 'id' });
 
     if (error) {
       console.error(`[API] ❌ Supabase error for ${supabaseTable}:`, error);
@@ -103,8 +120,10 @@ export async function PUT(
     const { table } = params;
     const supabaseTable = tableNameMap[table] || table;
 
+    // Convert field names from camelCase to snake_case
+    const { id, ...updateData } = convertToSnakeCase(body);
+    
     // Update record in Supabase
-    const { id, ...updateData } = body;
     const { data, error } = await supabase
       .from(supabaseTable)
       .update(updateData)
