@@ -256,7 +256,7 @@ export default function DebugPage() {
         <div className="card mb-6 p-6 bg-blue-50 border-2 border-blue-200">
           <h2 className="text-lg font-bold mb-2 text-blue-900">💡 How to Use</h2>
           <ol className="text-sm text-blue-900 space-y-1 list-decimal list-inside">
-            <li>Click "Add Test Plot" to create a test entry</li>
+            <li>Click &quot;Add Test Plot&quot; to create a test entry</li>
             <li>If Supabase is configured, check the browser Console (F12) for sync logs</li>
             <li>Look for <code className="bg-white px-1 rounded">[SyncService]</code> messages showing the sync process</li>
             <li>Visit Supabase dashboard → Table Editor → plots table to see if data appears</li>
