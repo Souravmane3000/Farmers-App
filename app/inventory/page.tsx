@@ -75,8 +75,8 @@ export default function InventoryPage() {
   }
 
   return (
-    <div className="min-h-screen pb-20 bg-gray-50">
-      <header className="bg-primary-600 text-white p-4 shadow-lg">
+    <div className="min-h-screen bg-gray-50 pb-20">
+      <header className="bg-primary-600 text-white p-4 shadow-lg sticky top-0 z-10">
         <div className="flex items-center gap-3">
           <BackButton href="/" />
           <h1 className="text-xl font-bold flex-1">Inventory</h1>

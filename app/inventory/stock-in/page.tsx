@@ -138,11 +138,134 @@ export default function StockInPage() {
   };
 
   if (loadingItems) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-lg">Loading...</div>
-      </div>
-    );
+return (
+    <div className="min-h-screen bg-gray-50">
+      <header className="bg-green-600 text-white p-4 shadow-lg">
+        <div className="flex items-center gap-3">
+          <BackButton href="/inventory" />
+          <h1 className="text-xl font-bold flex-1">Stock In</h1>
+        </div>
+        {successMessage && (
+          <div className="mt-2 p-2 bg-green-500 rounded text-sm">
+            {successMessage}
+          </div>
+        )}
+      </header>
+
+      <main className="p-4 max-w-2xl mx-auto mb-28">
+        <form onSubmit={handleSubmit(onSubmit)} className="card space-y-4">
+          {errorMessage && (
+            <div className="p-3 bg-red-50 border border-red-200 rounded text-red-700 text-sm">
+              {errorMessage}
+            </div>
+          )}
+
+          {items.length === 0 ? (
+            <div className="text-center py-6">
+              <p className="text-gray-600 mb-4">No inventory items found.</p>
+              <Button variant="primary" onClick={() => router.push('/inventory/add')}>
+                Add Item First
+              </Button>
+            </div>
+          ) : (
+            <>
+              <Select
+                label="Item *"
+                options={items.map((item) => ({ 
+                  value: item.id, 
+                  label: `${item.name} (${stockData[item.id] || 0} ${item.unit})`
+                }))}
+                {...register('itemId')}
+                error={errors.itemId?.message}
+              />
+
+              {selectedItemId && (
+                <div className="p-3 bg-blue-50 rounded-lg text-sm">
+                  <span className="text-gray-600">Current Stock: </span>
+                  <span className="font-bold text-blue-800">
+                    {stockData[selectedItemId] || 0} {items.find(i => i.id === selectedItemId)?.unit}
+                  </span>
+                </div>
+              )}
+
+              <Input
+                label="Quantity *"
+                type="number"
+                step="0.1"
+                placeholder="e.g., 50"
+                {...register('quantity')}
+                error={errors.quantity?.message}
+              />
+
+              <Input
+                label="Date *"
+                type="date"
+                {...register('date')}
+                error={errors.date?.message}
+              />
+
+              <Input
+                label="Batch Number (Optional)"
+                placeholder="e.g., BATCH-001"
+                {...register('batchNumber')}
+                error={errors.batchNumber?.message}
+              />
+
+              <Input
+                label="Expiry Date (Optional)"
+                type="date"
+                {...register('expiryDate')}
+                error={errors.expiryDate?.message}
+              />
+
+              <Input
+                label="Purchase Price (Optional)"
+                type="number"
+                step="0.01"
+                placeholder="e.g., 500"
+                {...register('purchasePrice')}
+                error={errors.purchasePrice?.message}
+              />
+
+              <div>
+                <label className="label">Notes (Optional)</label>
+                <textarea
+                  className="input-field min-h-[60px] resize-none"
+                  {...register('notes')}
+                  placeholder="Additional details..."
+                />
+              </div>
+            </>
+          )}
+        </form>
+      </main>
+
+      {/* Fixed bottom buttons - always visible */}
+      {items.length > 0 && (
+        <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 p-4 z-50" style={{ paddingBottom: 'calc(1rem + env(safe-area-inset-bottom))' }}>
+          <div className="max-w-2xl mx-auto flex gap-3">
+            <Button
+              type="button"
+              variant="secondary"
+              onClick={() => router.back()}
+              className="flex-1"
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              variant="primary"
+              onClick={handleSubmit(onSubmit)}
+              disabled={isSubmitting}
+              className="flex-1"
+            >
+              {isSubmitting ? 'Saving...' : 'Save Stock In'}
+            </Button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
   }
 
   return (

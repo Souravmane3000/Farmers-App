@@ -135,7 +135,7 @@ export default function AddInventoryPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 pb-20">
+    <div className="min-h-screen bg-gray-50">
       <header className="bg-primary-600 text-white p-4 shadow-lg sticky top-0 z-10">
         <div className="flex items-center gap-3">
           <BackButton href="/inventory" />
@@ -148,7 +148,7 @@ export default function AddInventoryPage() {
         )}
       </header>
 
-      <main className="p-4 max-w-2xl mx-auto">
+      <main className="p-4 max-w-2xl mx-auto mb-28">
         {errorMessage && (
           <div className="card bg-red-50 border border-red-200 p-3 mb-4">
             <div className="font-semibold mb-1 text-red-700">Error saving:</div>
@@ -209,7 +209,8 @@ export default function AddInventoryPage() {
         </form>
       </main>
 
-      <div className="fixed bottom-0 left-0 right-0 bg-white border-t shadow-lg p-4 z-20">
+      {/* Fixed bottom buttons - always visible */}
+      <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 p-4 z-50" style={{ paddingBottom: 'calc(1rem + env(safe-area-inset-bottom))' }}>
         <div className="max-w-2xl mx-auto flex gap-3">
           <Button
             type="button"
