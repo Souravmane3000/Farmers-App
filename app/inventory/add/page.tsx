@@ -136,54 +136,14 @@ export default function AddInventoryPage() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <header className="bg-primary-600 text-white p-4 shadow-lg sticky top-0 z-10">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <BackButton href="/inventory" />
-            <h1 className="text-2xl font-bold">Add Item</h1>
-          </div>
-          <button
-            type="button"
-            onClick={handleSubmit(handleDirectSave)}
-            disabled={!isValid || syncStatus === 'syncing'}
-            className={`flex items-center gap-2 px-4 py-2 rounded-lg font-semibold transition ${
-              syncStatus === 'syncing'
-                ? 'bg-white/30 text-white cursor-not-allowed animate-pulse'
-                : !isValid
-                ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                : syncStatus === 'success'
-                ? 'bg-green-500 text-white hover:bg-green-600'
-                : syncStatus === 'error'
-                ? 'bg-red-500 text-white hover:bg-red-600'
-                : 'bg-green-700 text-white hover:bg-green-800 cursor-pointer shadow-md'
-            }`}
-          >
-            {syncStatus === 'syncing' ? (
-              <>
-                <Loader className="w-5 h-5 animate-spin" />
-                Saving...
-              </>
-            ) : syncStatus === 'success' ? (
-              <>
-                <CheckCircle className="w-5 h-5" />
-                Saved!
-              </>
-            ) : syncStatus === 'error' ? (
-              <>
-                <AlertCircle className="w-5 h-5" />
-                Error
-              </>
-            ) : (
-              <>
-                <Save className="w-5 h-5" />
-                Save
-              </>
-            )}
-          </button>
+      <header className="bg-primary-600 text-white p-4 shadow-lg">
+        <div className="flex items-center gap-3">
+          <BackButton href="/inventory" />
+          <h1 className="text-xl font-bold flex-1">Add Item</h1>
         </div>
       </header>
 
-      <main className="p-3 pb-40 max-w-2xl mx-auto">
+      <main className="p-4 max-w-2xl mx-auto pb-32">
         <form className="card space-y-3">
           {errorMessage && (
             <div className="p-3 bg-red-50 border border-red-200 rounded text-red-700 text-sm">
@@ -253,9 +213,18 @@ export default function AddInventoryPage() {
               type="button"
               variant="secondary"
               onClick={() => router.push('/inventory')}
-              className="flex-1 text-sm"
+              className="flex-1"
             >
               Cancel
+            </Button>
+            <Button
+              type="button"
+              variant="primary"
+              onClick={handleSubmit(handleDirectSave)}
+              disabled={!isValid || syncStatus === 'syncing'}
+              className="flex-1"
+            >
+              {syncStatus === 'syncing' ? 'Saving...' : syncStatus === 'success' ? 'Saved!' : syncStatus === 'error' ? 'Error!' : 'Save Item'}
             </Button>
           </div>
         </form>

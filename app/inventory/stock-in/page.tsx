@@ -6,7 +6,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { v4 as uuidv4 } from 'uuid';
-import { db } from '@/lib/db/database';
+import { db, dbHelpers } from '@/lib/db/database';
 import { StockLog, StockType, InventoryItem, SyncStatus } from '@/types';
 import { useAuth } from '@/contexts/AuthContext';
 import { syncService } from '@/lib/sync/syncService';
@@ -34,17 +34,27 @@ export default function StockInPage() {
   const router = useRouter();
   const { farm } = useAuth();
   const [items, setItems] = useState<InventoryItem[]>([]);
+  const [stockData, setStockData] = useState<Record<string, number>>({});
+  const [selectedItemId, setSelectedItemId] = useState<string>('');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [loadingItems, setLoadingItems] = useState(true);
 
   const {
     register,
     handleSubmit,
     formState: { errors, isSubmitting },
+    setValue,
+    watch,
   } = useForm<StockInFormData>({
     resolver: zodResolver(stockInSchema),
     mode: 'onChange',
+    defaultValues: {
+      date: new Date().toISOString().split('T')[0],
+    },
   });
+
+  const watchedItemId = watch('itemId');
 
   useEffect(() => {
     if (farm) {
@@ -52,11 +62,23 @@ export default function StockInPage() {
     }
   }, [farm]);
 
+  useEffect(() => {
+    if (watchedItemId) {
+      setSelectedItemId(watchedItemId);
+    }
+  }, [watchedItemId]);
+
   const loadItems = async () => {
     if (!farm) return;
     try {
       const itemsData = await db.inventoryItems.where('farmId').equals(farm.id).toArray();
       setItems(itemsData);
+      
+      const stockMap: Record<string, number> = {};
+      for (const item of itemsData) {
+        stockMap[item.id] = await dbHelpers.getCurrentStock(item.id, farm.id);
+      }
+      setStockData(stockMap);
     } catch (error) {
       console.error('Error loading items:', error);
       setErrorMessage('Failed to load items');
@@ -67,6 +89,8 @@ export default function StockInPage() {
 
   const onSubmit = async (data: StockInFormData) => {
     setErrorMessage(null);
+    setSuccessMessage(null);
+    
     if (!farm) {
       setErrorMessage('Farm not found. Please login again.');
       return;
@@ -93,8 +117,19 @@ export default function StockInPage() {
 
       await db.stockLogs.add(stockLog);
       await syncService.markForSync(farm.id, 'stockLogs', stockLog.id, 'create', stockLog);
-
-      router.push('/inventory');
+      
+      const item = items.find(i => i.id === data.itemId);
+      setSuccessMessage(`Added ${quantity} ${item?.unit || 'units'} to "${item?.name || 'item'}"`);
+      
+      await loadItems();
+      setValue('itemId', '');
+      setValue('quantity', '');
+      setValue('batchNumber', '');
+      setValue('expiryDate', '');
+      setValue('purchasePrice', '');
+      setValue('notes', '');
+      setValue('date', new Date().toISOString().split('T')[0]);
+      
     } catch (error) {
       console.error('Error recording stock in:', error);
       const errorMsg = error instanceof Error ? error.message : 'Failed to record stock in. Please try again.';
@@ -105,40 +140,61 @@ export default function StockInPage() {
   if (loadingItems) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <div className="text-lg">Loading items...</div>
+        <div className="text-lg">Loading...</div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen pb-20 bg-gray-50">
+    <div className="min-h-screen bg-gray-50">
       <header className="bg-green-600 text-white p-4 shadow-lg">
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-3">
           <BackButton href="/inventory" />
-          <h1 className="text-2xl font-bold">Stock In</h1>
+          <h1 className="text-xl font-bold flex-1">Stock In</h1>
         </div>
       </header>
 
-      <main className="p-4 max-w-2xl mx-auto">
-        <form onSubmit={handleSubmit(onSubmit)} className="card space-y-4">
+      <main className="p-4 max-w-2xl mx-auto pb-32">
+        <form onSubmit={handleSubmit(onSubmit)} className="card space-y-3">
           {errorMessage && (
             <div className="p-3 bg-red-50 border border-red-200 rounded text-red-700 text-sm">
               {errorMessage}
             </div>
           )}
 
+          {successMessage && (
+            <div className="p-3 bg-green-50 border border-green-200 rounded text-green-700 text-sm">
+              {successMessage}
+            </div>
+          )}
+
           {items.length === 0 ? (
-            <div className="text-center py-6 text-gray-600">
-              <p>No inventory items. Create one first.</p>
+            <div className="text-center py-6">
+              <p className="text-gray-600 mb-4">No inventory items found.</p>
+              <Button variant="primary" onClick={() => router.push('/inventory/add')}>
+                Add Item First
+              </Button>
             </div>
           ) : (
             <>
               <Select
                 label="Item *"
-                options={items.map((item) => ({ value: item.id, label: item.name }))}
+                options={items.map((item) => ({ 
+                  value: item.id, 
+                  label: `${item.name} (${stockData[item.id] || 0} ${item.unit})`
+                }))}
                 {...register('itemId')}
                 error={errors.itemId?.message}
               />
+
+              {selectedItemId && (
+                <div className="p-3 bg-blue-50 rounded-lg text-sm">
+                  <span className="text-gray-600">Current Stock: </span>
+                  <span className="font-bold text-blue-800">
+                    {stockData[selectedItemId] || 0} {items.find(i => i.id === selectedItemId)?.unit}
+                  </span>
+                </div>
+              )}
 
               <Input
                 label="Quantity *"
@@ -182,7 +238,7 @@ export default function StockInPage() {
               <div>
                 <label className="label">Notes (Optional)</label>
                 <textarea
-                  className="input-field min-h-[70px] resize-none text-sm"
+                  className="input-field min-h-[60px] resize-none text-sm"
                   {...register('notes')}
                   placeholder="Additional details..."
                 />
@@ -193,7 +249,7 @@ export default function StockInPage() {
                   type="button"
                   variant="secondary"
                   onClick={() => router.back()}
-                  className="flex-1 text-sm"
+                  className="flex-1"
                 >
                   Cancel
                 </Button>
@@ -201,9 +257,9 @@ export default function StockInPage() {
                   type="submit"
                   variant="primary"
                   disabled={isSubmitting}
-                  className="flex-1 text-sm"
+                  className="flex-1"
                 >
-                  {isSubmitting ? 'Saving...' : 'Record Stock In'}
+                  {isSubmitting ? 'Saving...' : 'Save Stock In'}
                 </Button>
               </div>
             </>
