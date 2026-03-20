@@ -4,6 +4,8 @@ import { SyncOperation } from '@/types';
 
 // Map table names to Supabase table names (if different)
 const tableNameMap: Record<string, string> = {
+  users: 'users',
+  farms: 'farms',
   plots: 'plots',
   crops: 'crops',
   inventoryItems: 'inventory_items',

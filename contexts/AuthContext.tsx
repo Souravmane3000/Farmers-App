@@ -161,6 +161,27 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       await db.users.add(newUser);
       await db.farms.add(newFarm);
 
+      // Sync user and farm to Supabase
+      try {
+        await fetch('/api/sync/users', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(newUser),
+        });
+
+        await fetch('/api/sync/farms', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(newFarm),
+        });
+
+        // Update sync status
+        await db.users.update(userId, { updatedAt: new Date().toISOString() });
+        await db.farms.update(farmId, { updatedAt: new Date().toISOString() });
+      } catch (syncError) {
+        console.warn('Failed to sync to Supabase, will retry later:', syncError);
+      }
+
       // Generate token
       const token = `token_${Date.now()}_${Math.random().toString(36).substring(7)}`;
 
