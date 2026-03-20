@@ -135,29 +135,28 @@ export default function AddInventoryPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <header className="bg-primary-600 text-white p-4 shadow-lg">
+    <div className="min-h-screen bg-gray-50 pb-20">
+      <header className="bg-primary-600 text-white p-4 shadow-lg sticky top-0 z-10">
         <div className="flex items-center gap-3">
           <BackButton href="/inventory" />
           <h1 className="text-xl font-bold flex-1">Add Item</h1>
         </div>
+        {successMessage && (
+          <div className="mt-2 p-2 bg-green-500 rounded text-sm">
+            {successMessage}
+          </div>
+        )}
       </header>
 
-      <main className="p-4 max-w-2xl mx-auto pb-32">
-        <form className="card space-y-3">
-          {errorMessage && (
-            <div className="p-3 bg-red-50 border border-red-200 rounded text-red-700 text-sm">
-              <div className="font-semibold mb-1">❌ Error saving to Supabase:</div>
-              <div className="break-words">{errorMessage}</div>
-            </div>
-          )}
+      <main className="p-4 max-w-2xl mx-auto">
+        {errorMessage && (
+          <div className="card bg-red-50 border border-red-200 p-3 mb-4">
+            <div className="font-semibold mb-1 text-red-700">Error saving:</div>
+            <div className="text-red-600 text-sm break-words">{errorMessage}</div>
+          </div>
+        )}
 
-          {successMessage && (
-            <div className="p-3 bg-green-50 border border-green-200 rounded text-green-700 text-sm">
-              {successMessage}
-            </div>
-          )}
-
+        <form className="card space-y-4">
           <Input
             label="Item Name *"
             placeholder="e.g., Nitrogen Fertilizer"
@@ -202,33 +201,35 @@ export default function AddInventoryPage() {
           <div>
             <label className="label">Description (Optional)</label>
             <textarea
-              className="input-field min-h-[80px] resize-none text-sm"
+              className="input-field min-h-[80px] resize-none"
               {...register('description')}
               placeholder="Additional details about this item..."
             />
           </div>
-
-          <div className="flex gap-3 pt-4">
-            <Button
-              type="button"
-              variant="secondary"
-              onClick={() => router.push('/inventory')}
-              className="flex-1"
-            >
-              Cancel
-            </Button>
-            <Button
-              type="button"
-              variant="primary"
-              onClick={handleSubmit(handleDirectSave)}
-              disabled={!isValid || syncStatus === 'syncing'}
-              className="flex-1"
-            >
-              {syncStatus === 'syncing' ? 'Saving...' : syncStatus === 'success' ? 'Saved!' : syncStatus === 'error' ? 'Error!' : 'Save Item'}
-            </Button>
-          </div>
         </form>
       </main>
+
+      <div className="fixed bottom-0 left-0 right-0 bg-white border-t shadow-lg p-4 z-20">
+        <div className="max-w-2xl mx-auto flex gap-3">
+          <Button
+            type="button"
+            variant="secondary"
+            onClick={() => router.push('/inventory')}
+            className="flex-1"
+          >
+            Cancel
+          </Button>
+          <Button
+            type="button"
+            variant="primary"
+            onClick={handleSubmit(handleDirectSave)}
+            disabled={!isValid || syncStatus === 'syncing'}
+            className="flex-1"
+          >
+            {syncStatus === 'syncing' ? 'Saving...' : syncStatus === 'success' ? 'Saved!' : 'Save Item'}
+          </Button>
+        </div>
+      </div>
     </div>
   );
 }
